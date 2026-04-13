@@ -4,7 +4,8 @@
 void main(){
     initAllModules(); // 初始化所有模块
 
-    while(1){
+    while(1)
+    {
              	
     }
 }
