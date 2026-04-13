@@ -1,8 +1,10 @@
 #include "zf_common_headfile.h"
+#include "init.h"
 
 void main(){
-    
-    while(1){
+    initAllModules(); // 初始化所有模块
 
+    while(1){
+             	
     }
 }
