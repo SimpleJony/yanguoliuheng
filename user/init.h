@@ -1,6 +1,8 @@
 #ifndef __INIT_H__
 #define __INIT_H__
 
+#include "zf_common_headfile.h"
+
 // 电机的方向引脚和PWM引脚定义
 #define MAX_DUTY            ( 50 ) // 最大 MAX_DUTY% 占空比
 #define DIR_1               ( IO_P50 ) 
@@ -12,7 +14,9 @@
 #define DIR_4               ( IO_P77 )
 #define PWM_4               ( PWMB_CH3_P76 )
 
-#include "zf_common_headfile.h"
+// 配置网络信息
+#define WIFI_SSID          "Xiaomi 17 Pro"
+#define WIFI_PASSWORD      "jony123456"
 
 void initAllModules();
 void Motor_Init();

@@ -13,26 +13,22 @@ void Motor_Init(){
     gpio_init(DIR_1, GPO, GPIO_HIGH, GPO_PUSH_PULL);   // GPIO 初始化为输出 默认上拉输出高
     pwm_init(PWM_1, 17000, 0);                         // PWM 通道初始化频率 17KHz 占空比初始为 0
 
-    gpio_init(DIR_2, GPO, GPIO_HIGH, GPO_PUSH_PULL);   // GPIO 初始化为输出 默认上拉输出高
-    pwm_init(PWM_2, 17000, 0);                         // PWM 通道初始化频率 17KHz 占空比初始为 0
+    gpio_init(DIR_2, GPO, GPIO_HIGH, GPO_PUSH_PULL);
+    pwm_init(PWM_2, 17000, 0);                      
 
-    gpio_init(DIR_3, GPO, GPIO_HIGH, GPO_PUSH_PULL);   // GPIO 初始化为输出 默认上拉输出高
-    pwm_init(PWM_3, 17000, 0);                         // PWM 通道初始化频率 17KHz 占空比初始为 0
+    gpio_init(DIR_3, GPO, GPIO_HIGH, GPO_PUSH_PULL);
+    pwm_init(PWM_3, 17000, 0);                      
 
-    gpio_init(DIR_4, GPO, GPIO_HIGH, GPO_PUSH_PULL);   // GPIO 初始化为输出 默认上拉输出高
-    pwm_init(PWM_4, 17000, 0);                         // PWM 通道初始化频率 17KHz 占空比初始为 0
+    gpio_init(DIR_4, GPO, GPIO_HIGH, GPO_PUSH_PULL);
+    pwm_init(PWM_4, 17000, 0);                      
 }
 
 void WifiSPI_Init(){
-    // 配置网络信息
-    #define WIFI_SSID_TEST          "Xiaomi 17 Pro"
-    #define WIFI_PASSWORD_TEST      "jony123456"
-
     uint8 wifi_spi_test_buffer[256] = "this is wifi spi test buffer";
     uint8 wifi_spi_recv_buffer[256] = "recv buffer : ";
     uint8 wifi_spi_get_data_buffer[256] = {0};
     uint16 data_length = 0;
-    while(wifi_spi_init(WIFI_SSID_TEST, WIFI_PASSWORD_TEST))
+    while(wifi_spi_init(WIFI_SSID, WIFI_PASSWORD))
     {
         printf("\r\n connect wifi failed, try again. \r\n");
         system_delay_ms(100);                                               // 连接失败 等待 100ms
