@@ -4,9 +4,7 @@ void initAllModules(){
     clock_init(SYSTEM_CLOCK_96M); 				// 时钟配置及系统初始化<务必保留>
     debug_init();                       		// 调试串口信息初始化
     Motor_Init();                             // 电机初始化
-
-    ips200_set_dir(IPS200_PORTAIT); // 设置为竖屏模式
-    ips200_init(); // 初始化屏幕
+    Screen_Init();                            // 屏幕初始化
 }
 
 void Motor_Init(){
@@ -21,6 +19,11 @@ void Motor_Init(){
 
     gpio_init(DIR_4, GPO, GPIO_HIGH, GPO_PUSH_PULL);
     pwm_init(PWM_4, 17000, 0);                      
+}
+
+void Screen_Init(){
+    ips200_set_dir(IPS200_PORTAIT); // 设置为竖屏模式
+    ips200_init(); // 初始化屏幕
 }
 
 void WifiSPI_Init(){

@@ -20,6 +20,7 @@
 
 void initAllModules();
 void Motor_Init();
+void Screen_Init();
 void WifiSPI_Init();
 
 #endif
