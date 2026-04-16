@@ -1,24 +1,23 @@
 #include "init.h"
 
-#ifdef WIFI_SPI
-// 配置网络信息
-#define WIFI_SSID_TEST          "Xiaomi 17 Pro"
-#define WIFI_PASSWORD_TEST      "jony123456"
-
-uint8 wifi_spi_test_buffer[] = "this is wifi spi test buffer";
-uint8 wifi_spi_recv_buffer[] = "recv buffer : ";
-uint8 wifi_spi_get_data_buffer[256] = {0};
-uint16 data_length = 0;
-#endif
-
 void initAllModules(){
     clock_init(SYSTEM_CLOCK_96M); 				// 时钟配置及系统初始化<务必保留>
     debug_init();                       		// 调试串口信息初始化
 
     ips200_set_dir(IPS200_PORTAIT); // 设置为竖屏模式
     ips200_init(); // 初始化屏幕
+}
 
-    #ifdef WIFI_SPI
+void WifiSPI_Init(){
+    // 配置网络信息
+    #define WIFI_SSID_TEST          "Xiaomi 17 Pro"
+    #define WIFI_PASSWORD_TEST      "jony123456"
+
+    uint8 wifi_spi_test_buffer[256] = "this is wifi spi test buffer";
+    uint8 wifi_spi_recv_buffer[256] = "recv buffer : ";
+    uint8 wifi_spi_get_data_buffer[256] = {0};
+    uint16 data_length = 0;
+    
     while(wifi_spi_init(WIFI_SSID_TEST, WIFI_PASSWORD_TEST))
     {
         printf("\r\n connect wifi failed, try again. \r\n");
@@ -33,5 +32,4 @@ void initAllModules(){
     {
         printf("\r\n %d bytes data send failed. \r\n", data_length);
     }
-    #endif
 }
