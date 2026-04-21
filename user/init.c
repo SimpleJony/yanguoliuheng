@@ -1,10 +1,12 @@
 #include "init.h"
 
 void initAllModules(){
-    clock_init(SYSTEM_CLOCK_96M); 				// 时钟配置及系统初始化<务必保留>
-    debug_init();                       		// 调试串口信息初始化
-    Motor_Init();                             // 电机初始化
-    Screen_Init();                            // 屏幕初始化
+    clock_init(SYSTEM_CLOCK_96M); 			 // 时钟配置及系统初始化<务必保留>
+    debug_init();                       	 // 调试串口信息初始化
+    Motor_Init();                            // 电机初始化
+    Encoder_Init();                          // 编码器初始化
+    SeekfreeAssistant_Init();                // 逐飞助手初始化
+    //Screen_Init();                         // 屏幕初始化 需要我再开
 }
 
 void Motor_Init(){
@@ -21,6 +23,15 @@ void Motor_Init(){
     pwm_init(PWM_4, 17000, 0);                      
 }
 
+void Encoder_Init(){
+    encoder_dir_init(SPEED_ENCODER, SPEED_ENCODER_PULSE_PIN, SPEED_ENCODER_DIR_PIN);
+}
+
+void SeekfreeAssistant_Init(){
+    seekfree_assistant_init();
+    seekfree_assistant_interface_init(SEEKFREE_ASSISTANT_DEBUG_UART);
+}
+
 void Screen_Init(){
     ips200_set_dir(IPS200_PORTAIT); // 设置为竖屏模式
     ips200_init(); // 初始化屏幕
@@ -28,8 +39,6 @@ void Screen_Init(){
 
 void WifiSPI_Init(){
     uint8 wifi_spi_test_buffer[256] = "this is wifi spi test buffer";
-    uint8 wifi_spi_recv_buffer[256] = "recv buffer : ";
-    uint8 wifi_spi_get_data_buffer[256] = {0};
     uint16 data_length = 0;
     while(wifi_spi_init(WIFI_SSID, WIFI_PASSWORD))
     {
