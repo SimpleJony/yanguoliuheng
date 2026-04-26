@@ -854,6 +854,16 @@
               <FileType>5</FileType>
               <FilePath>.\user\init.h</FilePath>
             </File>
+            <File>
+              <FileName>control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\control.c</FilePath>
+            </File>
+            <File>
+              <FileName>control.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\control.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

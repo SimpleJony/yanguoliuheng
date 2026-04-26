@@ -14,10 +14,13 @@
 #define DIR_4                           ( IO_P77 )
 #define PWM_4                           ( PWMB_CH3_P76 )
 
-// 速度闭环采样编码器定义（电机1）
-#define SPEED_ENCODER                   ( PWMA_ENCODER )
-#define SPEED_ENCODER_PULSE_PIN         ( PWMA_ENCODER_CH1P_P60 )
-#define SPEED_ENCODER_DIR_PIN           ( PWMA_ENCODER_CH2P_P62 )
+// 速度闭环采样编码器定义
+#define SPEED_ENCODER1                   ( PWMC_ENCODER )
+#define SPEED_ENCODER1_PULSE_PIN         ( PWMC_ENCODER_CH1P_P40 )
+#define SPEED_ENCODER1_DIR_PIN           ( PWMC_ENCODER_CH2P_P42 )
+#define SPEED_ENCODER2                   ( PWMA_ENCODER )
+#define SPEED_ENCODER2_PULSE_PIN         ( PWMA_ENCODER_CH1P_P60 )
+#define SPEED_ENCODER2_DIR_PIN           ( PWMA_ENCODER_CH2P_P62 )
 
 // PID 控制周期与示波器发送周期
 #define CONTROL_PIT_CH                  ( TIM1_PIT )

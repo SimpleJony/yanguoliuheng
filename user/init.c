@@ -24,7 +24,8 @@ void Motor_Init(){
 }
 
 void Encoder_Init(){
-    encoder_dir_init(SPEED_ENCODER, SPEED_ENCODER_PULSE_PIN, SPEED_ENCODER_DIR_PIN);
+    encoder_dir_init(SPEED_ENCODER1, SPEED_ENCODER1_PULSE_PIN, SPEED_ENCODER1_DIR_PIN);
+    encoder_dir_init(SPEED_ENCODER2, SPEED_ENCODER2_PULSE_PIN, SPEED_ENCODER2_DIR_PIN);
 }
 
 void SeekfreeAssistant_Init(){
