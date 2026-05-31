@@ -4,11 +4,11 @@
 #include "zf_common_headfile.h"
 
 // 电机方向与 PWM 引脚定义
-#define MAX_DUTY                        ( 50 )
-#define DIR_1                           ( IO_P50 )
-#define PWM_1                           ( PWMD_CH2_P51 )
-#define DIR_2                           ( IO_P52 )
-#define PWM_2                           ( PWMD_CH4_P53 )
+#define MAX_DUTY                        ( 100 )
+#define DIR_1                           ( IO_P52 )
+#define PWM_1                           ( PWMD_CH4_P53 )
+#define DIR_2                           ( IO_P50 )
+#define PWM_2                           ( PWMD_CH2_P51 )
 #define DIR_3                           ( IO_P75 )
 #define PWM_3                           ( PWMB_CH1_P74 )
 #define DIR_4                           ( IO_P77 )
