@@ -14,5 +14,10 @@ void Servo_SetPosition(float position);                 // 设置舵机位置
 void Servo_SetTargetPosition(float target);             // 设置舵机目标位置
 void Servo_PositionPdUpdate(void);                      // 舵机位置PD更新
 void Servo_AssistantUpdate(volatile float *lastParamChannel, volatile float *lastParamValue);       // 逐飞助手参数更新
+float Servo_GetTargetPosition(void);                    // 获取舵机目标位置
+float Servo_GetTargetCommand(void);                     // 获取逐飞助手发送的舵机目标位置命令
+float Servo_GetFeedbackPosition(void);                  // 获取舵机反馈位置
+float Servo_GetOutputDuty(void);                        // 获取舵机输出占空比
+float Servo_GetPwmDuty(void);                           // 获取舵机PWM占空比
 
 #endif

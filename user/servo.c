@@ -154,3 +154,28 @@ void Servo_AssistantUpdate(volatile float *lastParamChannel, volatile float *las
         seekfree_assistant_parameter_update_flag[SERVO_PARAM_CENTER_CHANNEL - 1] = 0;
     }
 }
+
+float Servo_GetTargetPosition(void)
+{
+    return servoTargetPosition;
+}
+
+float Servo_GetTargetCommand(void)
+{
+    return servoTargetCommand;
+}
+
+float Servo_GetFeedbackPosition(void)
+{
+    return servoFeedbackPosition;
+}
+
+float Servo_GetOutputDuty(void)
+{
+    return servoOutputDuty;
+}
+
+float Servo_GetPwmDuty(void)
+{
+    return servoPwmDuty;
+}
