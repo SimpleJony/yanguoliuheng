@@ -29,15 +29,21 @@
 #define OSCILLOSCOPE_SEND_PERIOD_MS     ( 20 )
 
 // 配置网络信息
-#define WIFI_SSID          "Xiaomi 17 Pro"
-#define WIFI_PASSWORD      "jony123456"
+#define SEEKFREE_ASSISTANT_USE_WIFI_SPI     ( 1 )
+#define WIFI_SSID                           "Xiaomi 17 Pro"
+#define WIFI_PASSWORD                       "jony123456"
+#define WIFI_TRANSPORT_TYPE                 "UDP"
+#define WIFI_TARGET_IP                      "10.168.248.145"
+#define WIFI_TARGET_PORT                    "8086"
+#define WIFI_LOCAL_PORT                     "8086"
+#define WIFI_CONNECT_RETRY_MAX              ( 5 )
 
 void initAllModules();
 void Motor_Init();
 void Encoder_Init();
 void SeekfreeAssistant_Init();
 void Screen_Init();
-void WifiSPI_Init();
+uint8 WifiSPI_Init();
 
 #endif
     

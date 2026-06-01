@@ -1,26 +1,26 @@
 #include "init.h"
 
 void initAllModules(){
-    clock_init(SYSTEM_CLOCK_96M); 			 // 时钟配置及系统初始化<务必保留>
-    debug_init();                       	 // 调试串口信息初始化
-    Motor_Init();                            // 电机初始化
-    Encoder_Init();                          // 编码器初始化
-    SeekfreeAssistant_Init();                // 逐飞助手初始化
-    //Screen_Init();                         // 屏幕初始化 需要我再开
+    clock_init(SYSTEM_CLOCK_96M);
+    debug_init();
+    Motor_Init();
+    Encoder_Init();
+    SeekfreeAssistant_Init();
+    //Screen_Init();
 }
 
 void Motor_Init(){
-    gpio_init(DIR_1, GPO, GPIO_HIGH, GPO_PUSH_PULL);   // GPIO 初始化为输出 默认上拉输出高
-    pwm_init(PWM_1, 17000, 0);                         // PWM 通道初始化频率 17KHz 占空比初始为 0
+    gpio_init(DIR_1, GPO, GPIO_HIGH, GPO_PUSH_PULL);
+    pwm_init(PWM_1, 17000, 0);
 
     gpio_init(DIR_2, GPO, GPIO_HIGH, GPO_PUSH_PULL);
-    pwm_init(PWM_2, 17000, 0);                      
+    pwm_init(PWM_2, 17000, 0);
 
     gpio_init(DIR_3, GPO, GPIO_HIGH, GPO_PUSH_PULL);
-    pwm_init(PWM_3, 17000, 0);                      
+    pwm_init(PWM_3, 17000, 0);
 
     gpio_init(DIR_4, GPO, GPIO_HIGH, GPO_PUSH_PULL);
-    pwm_init(PWM_4, 17000, 0);                      
+    pwm_init(PWM_4, 17000, 0);
 }
 
 void Encoder_Init(){
@@ -30,29 +30,64 @@ void Encoder_Init(){
 
 void SeekfreeAssistant_Init(){
     seekfree_assistant_init();
+#if SEEKFREE_ASSISTANT_USE_WIFI_SPI
+    if (0 == WifiSPI_Init())
+    {
+        seekfree_assistant_interface_init(SEEKFREE_ASSISTANT_WIFI_SPI);
+        return;
+    }
+
+    printf("\r\n wifi spi init failed, fallback to debug uart. \r\n");
+#endif
     seekfree_assistant_interface_init(SEEKFREE_ASSISTANT_DEBUG_UART);
 }
 
 void Screen_Init(){
-    ips200_set_dir(IPS200_PORTAIT); // 设置为竖屏模式
-    ips200_init(); // 初始化屏幕
+    ips200_set_dir(IPS200_PORTAIT);
+    ips200_init();
 }
 
-void WifiSPI_Init(){
-    uint8 wifi_spi_test_buffer[256] = "this is wifi spi test buffer";
-    uint16 data_length = 0;
-    while(wifi_spi_init(WIFI_SSID, WIFI_PASSWORD))
+uint8 WifiSPI_Init(){
+    uint8 retry = 0;
+    char *wifi_password = NULL;
+
+    if ('\0' != WIFI_PASSWORD[0])
     {
-        printf("\r\n connect wifi failed, try again. \r\n");
-        system_delay_ms(100);                                               // 连接失败 等待 100ms
+        wifi_password = WIFI_PASSWORD;
     }
-    data_length = wifi_spi_send_buffer(wifi_spi_test_buffer, sizeof(wifi_spi_test_buffer));
-    if(!data_length)
+
+    for (retry = 0; retry < WIFI_CONNECT_RETRY_MAX; retry++)
     {
-        printf("\r\n send success. \r\n");
+        if (0 == wifi_spi_init(WIFI_SSID, wifi_password))
+        {
+            break;
+        }
+
+        printf("\r\n connect wifi failed, retry %d/%d. \r\n",
+               (int)(retry + 1),
+               (int)WIFI_CONNECT_RETRY_MAX);
+        system_delay_ms(200);
     }
-    else
+
+    if (WIFI_CONNECT_RETRY_MAX <= retry)
     {
-        printf("\r\n %d bytes data send failed. \r\n", data_length);
+        return 1;
     }
+
+    if (wifi_spi_socket_connect(WIFI_TRANSPORT_TYPE,
+                                WIFI_TARGET_IP,
+                                WIFI_TARGET_PORT,
+                                WIFI_LOCAL_PORT))
+    {
+        printf("\r\n connect socket failed. \r\n");
+        return 1;
+    }
+
+    printf("\r\n wifi spi ready: %s %s:%s local %s. \r\n",
+           WIFI_TRANSPORT_TYPE,
+           WIFI_TARGET_IP,
+           WIFI_TARGET_PORT,
+           wifi_spi_ip_addr_port);
+
+    return 0;
 }
