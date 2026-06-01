@@ -2,9 +2,10 @@
 #include "init.h"
 #include "control.h"
 
-void main(){
-    initAllModules(); // 初始化所有模块
-    control_Init();   // 启动闭环控制
+void main()
+{
+    initAllModules();
+    control_Init();
 
     while(1)
     {
