@@ -1,4 +1,5 @@
 #include "control.h"
+#include "servo.h"
 
 // 逐飞助手的参数通道
 #define PARAM_MOTOR1_KP_INDEX       (0)
@@ -131,6 +132,7 @@ void control_reset()
     encoder_clear_count(SPEED_ENCODER2);
     Motor1_SetSpeed(0.0f);
     Motor2_SetSpeed(0.0f);
+    Servo_Reset();
 }
 
 // 初始化
@@ -253,8 +255,16 @@ void control_pit_handler()
         errorMotor2Last = errorTemp2;
     }
 
+#if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_SERVO)
+    Motor1_SetSpeed(0.0f);
+    Motor2_SetSpeed(0.0f);
+    Servo_PositionPdUpdate();
+#elif (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_MOTOR)
     Motor1_SetSpeed(outputTemp1);
     Motor2_SetSpeed(outputTemp2);
+#else
+#error "SEEKFREE_ASSISTANT_TUNE_TARGET must be ASSISTANT_TUNE_MOTOR or ASSISTANT_TUNE_SERVO"
+#endif
 }
 
 float control_limit(float value, float low, float high)
@@ -275,6 +285,10 @@ void control_update()
     bit irq_backup = EA;
     EA = 0;
 
+#if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_SERVO)
+    Servo_AssistantUpdate(&lastParamChannel, &lastParamValue);
+
+#elif (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_MOTOR)
     if (seekfree_assistant_parameter_update_flag[PARAM_MOTOR1_KP_INDEX])
     {
         motor1Kp = control_limit(seekfree_assistant_parameter[PARAM_MOTOR1_KP_INDEX], PID_KP_MIN, PID_KP_MAX);
@@ -351,11 +365,47 @@ void control_update()
         seekfree_assistant_parameter_update_flag[PARAM_MOTOR2_TARGET_INDEX] = 0;
     }
 
+#else
+#error "SEEKFREE_ASSISTANT_TUNE_TARGET must be ASSISTANT_TUNE_MOTOR or ASSISTANT_TUNE_SERVO"
+#endif
+
     EA = irq_backup;
 }
 
 void control_sendOscData()
 {
+#if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_SERVO)
+    float localServoCommand = 0.0f;
+    float localServoTarget = 0.0f;
+    float localServoFeedback = 0.0f;
+    float localServoOutput = 0.0f;
+    float localServoPwmDuty = 0.0f;
+    float localLastParamChannel = 0.0f;
+    float localLastParamValue = 0.0f;
+    bit irq_backup = EA;
+    EA = 0;
+
+    localServoCommand = Servo_GetTargetCommand();
+    localServoTarget = Servo_GetTargetPosition();
+    localServoFeedback = Servo_GetFeedbackPosition();
+    localServoOutput = Servo_GetOutputDuty();
+    localServoPwmDuty = Servo_GetPwmDuty();
+    localLastParamChannel = lastParamChannel;
+    localLastParamValue = lastParamValue;
+
+    EA = irq_backup;
+
+    seekfree_assistant_oscilloscope_data.dat[0] = localServoCommand;
+    seekfree_assistant_oscilloscope_data.dat[1] = localServoTarget;
+    seekfree_assistant_oscilloscope_data.dat[2] = localServoFeedback;
+    seekfree_assistant_oscilloscope_data.dat[3] = localServoOutput;
+    seekfree_assistant_oscilloscope_data.dat[4] = localServoPwmDuty;
+    seekfree_assistant_oscilloscope_data.dat[5] = localLastParamChannel;
+    seekfree_assistant_oscilloscope_data.dat[6] = localLastParamValue;
+    seekfree_assistant_oscilloscope_data.channel_num = 7;
+
+    seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
+#elif (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_MOTOR)
     float localTargetSpeed1 = 0.0f;
     float localTargetSpeed2 = 0.0f;
     float localFeedbackSpeed1 = 0.0f;
@@ -389,6 +439,9 @@ void control_sendOscData()
     seekfree_assistant_oscilloscope_data.channel_num = 8;
 
     seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
+#else
+#error "SEEKFREE_ASSISTANT_TUNE_TARGET must be ASSISTANT_TUNE_MOTOR or ASSISTANT_TUNE_SERVO"
+#endif
 }
 
 void Motor1_SetSpeed(float dutyPercent)

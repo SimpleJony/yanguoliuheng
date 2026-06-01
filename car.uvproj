@@ -864,6 +864,16 @@
               <FileType>5</FileType>
               <FilePath>.\user\control.h</FilePath>
             </File>
+            <File>
+              <FileName>servo.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\servo.c</FilePath>
+            </File>
+            <File>
+              <FileName>servo.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\servo.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

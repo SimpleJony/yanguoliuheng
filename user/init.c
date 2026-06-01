@@ -1,9 +1,11 @@
 #include "init.h"
+#include "servo.h"
 
 void initAllModules(){
     clock_init(SYSTEM_CLOCK_96M);
     debug_init();
     Motor_Init();
+    Servo_Init();
     Encoder_Init();
     SeekfreeAssistant_Init();
     //Screen_Init();
@@ -26,6 +28,11 @@ void Motor_Init(){
 void Encoder_Init(){
     encoder_quad_init(SPEED_ENCODER1, SPEED_ENCODER1_PULSE_PIN, SPEED_ENCODER1_DIR_PIN);
     encoder_quad_init(SPEED_ENCODER2, SPEED_ENCODER2_PULSE_PIN, SPEED_ENCODER2_DIR_PIN);
+}
+
+void Servo_Init(){
+    pwm_init(SERVO_PWM, SERVO_PWM_FREQ, 0);
+    Servo_Reset();
 }
 
 void SeekfreeAssistant_Init(){

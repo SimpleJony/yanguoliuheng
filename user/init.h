@@ -14,6 +14,20 @@
 #define DIR_4                           ( IO_P77 )
 #define PWM_4                           ( PWMB_CH3_P76 )
 
+#define SERVO_PWM                       ( PWME_CH1P_PA0 )
+#define SERVO_PWM_FREQ                  ( 50 )
+#define SERVO_DUTY(angle)               ((float)PWM_DUTY_MAX / (1000.0f / (float)SERVO_PWM_FREQ) * (0.5f + (float)(angle) / 90.0f))
+#define SERVO_DUTY_CENTER               ( 740.0f )
+#define SERVO_DUTY_MIN                  ( SERVO_DUTY(0.0f) )
+#define SERVO_DUTY_MAX                  ( SERVO_DUTY(180.0f) )
+#define SERVO_OUTPUT_LIMIT              ( 250.0f )
+#define SERVO_DIRECTION_SIGN            ( 1.0f )
+#define SERVO_TARGET_RAMP_STEP          ( 1.0f )
+
+#if ((SERVO_PWM_FREQ < 50) || (SERVO_PWM_FREQ > 300))
+    #error "SERVO_PWM_FREQ must be 50-300"
+#endif
+
 // 速度闭环采样编码器定义
 #define SPEED_ENCODER1                   ( PWMC_ENCODER )
 #define SPEED_ENCODER1_PULSE_PIN         ( PWMC_ENCODER_CH1P_P40 )
@@ -28,6 +42,10 @@
 #define CONTROL_TASK_PERIOD_MS          ( 5 )
 #define OSCILLOSCOPE_SEND_PERIOD_MS     ( 20 )
 
+#define ASSISTANT_TUNE_MOTOR            ( 0 )
+#define ASSISTANT_TUNE_SERVO            ( 1 )
+#define SEEKFREE_ASSISTANT_TUNE_TARGET  ( ASSISTANT_TUNE_SERVO )
+
 // 配置网络信息
 #define SEEKFREE_ASSISTANT_USE_WIFI_SPI     ( 1 )
 #define WIFI_SSID                           "Xiaomi 17 Pro"
@@ -40,6 +58,7 @@
 
 void initAllModules();
 void Motor_Init();
+void Servo_Init();
 void Encoder_Init();
 void SeekfreeAssistant_Init();
 void Screen_Init();
