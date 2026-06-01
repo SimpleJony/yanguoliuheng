@@ -262,8 +262,12 @@ void control_pit_handler()
 #elif (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_MOTOR)
     Motor1_SetSpeed(outputTemp1);
     Motor2_SetSpeed(outputTemp2);
+#elif (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
+    Motor1_SetSpeed(outputTemp1);
+    Motor2_SetSpeed(outputTemp2);
+    Servo_PositionPdUpdate();
 #else
-#error "SEEKFREE_ASSISTANT_TUNE_TARGET must be ASSISTANT_TUNE_MOTOR or ASSISTANT_TUNE_SERVO"
+#error "SEEKFREE_ASSISTANT_TUNE_TARGET must be ASSISTANT_TUNE_MOTOR, ASSISTANT_TUNE_SERVO or ASSISTANT_TUNE_NONE"
 #endif
 }
 
@@ -365,8 +369,12 @@ void control_update()
         seekfree_assistant_parameter_update_flag[PARAM_MOTOR2_TARGET_INDEX] = 0;
     }
 
+#elif (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
+    lastParamChannel = 0.0f;
+    lastParamValue = 0.0f;
+
 #else
-#error "SEEKFREE_ASSISTANT_TUNE_TARGET must be ASSISTANT_TUNE_MOTOR or ASSISTANT_TUNE_SERVO"
+#error "SEEKFREE_ASSISTANT_TUNE_TARGET must be ASSISTANT_TUNE_MOTOR, ASSISTANT_TUNE_SERVO or ASSISTANT_TUNE_NONE"
 #endif
 
     EA = irq_backup;
@@ -439,8 +447,42 @@ void control_sendOscData()
     seekfree_assistant_oscilloscope_data.channel_num = 8;
 
     seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
+#elif (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
+    float localTargetSpeed1 = 0.0f;
+    float localFeedbackSpeed1 = 0.0f;
+    float localOutput1 = 0.0f;
+    float localTargetSpeed2 = 0.0f;
+    float localFeedbackSpeed2 = 0.0f;
+    float localOutput2 = 0.0f;
+    float localServoTarget = 0.0f;
+    float localServoOutput = 0.0f;
+    bit irq_backup = EA;
+    EA = 0;
+
+    localTargetSpeed1 = targetSpeed1;
+    localFeedbackSpeed1 = feedbackSpeed1;
+    localOutput1 = output1;
+    localTargetSpeed2 = targetSpeed2;
+    localFeedbackSpeed2 = feedbackSpeed2;
+    localOutput2 = output2;
+    localServoTarget = Servo_GetTargetPosition();
+    localServoOutput = Servo_GetOutputDuty();
+
+    EA = irq_backup;
+
+    seekfree_assistant_oscilloscope_data.dat[0] = localTargetSpeed1;
+    seekfree_assistant_oscilloscope_data.dat[1] = localFeedbackSpeed1;
+    seekfree_assistant_oscilloscope_data.dat[2] = localOutput1;
+    seekfree_assistant_oscilloscope_data.dat[3] = localTargetSpeed2;
+    seekfree_assistant_oscilloscope_data.dat[4] = localFeedbackSpeed2;
+    seekfree_assistant_oscilloscope_data.dat[5] = localOutput2;
+    seekfree_assistant_oscilloscope_data.dat[6] = localServoTarget;
+    seekfree_assistant_oscilloscope_data.dat[7] = localServoOutput;
+    seekfree_assistant_oscilloscope_data.channel_num = 8;
+
+    seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
 #else
-#error "SEEKFREE_ASSISTANT_TUNE_TARGET must be ASSISTANT_TUNE_MOTOR or ASSISTANT_TUNE_SERVO"
+#error "SEEKFREE_ASSISTANT_TUNE_TARGET must be ASSISTANT_TUNE_MOTOR, ASSISTANT_TUNE_SERVO or ASSISTANT_TUNE_NONE"
 #endif
 }
 
