@@ -844,6 +844,46 @@
               <FileType>1</FileType>
               <FilePath>.\user\main.c</FilePath>
             </File>
+            <File>
+              <FileName>init.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\init.c</FilePath>
+            </File>
+            <File>
+              <FileName>init.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\init.h</FilePath>
+            </File>
+            <File>
+              <FileName>control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\control.c</FilePath>
+            </File>
+            <File>
+              <FileName>control.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\control.h</FilePath>
+            </File>
+            <File>
+              <FileName>servo.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\servo.c</FilePath>
+            </File>
+            <File>
+              <FileName>servo.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\servo.h</FilePath>
+            </File>
+            <File>
+              <FileName>search_line.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\search_line.c</FilePath>
+            </File>
+            <File>
+              <FileName>search_line.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\search_line.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
