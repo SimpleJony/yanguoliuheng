@@ -1,5 +1,6 @@
 #include "control.h"
 #include "servo.h"
+#include "search_line.h"
 
 // 逐飞助手的参数通道
 #define PARAM_MOTOR1_KP_INDEX       (0)
@@ -36,6 +37,18 @@
 #define MOTOR1_DIR_SIGN             (-1.0f)             // 电机1方向符号
 #define MOTOR2_DIR_SIGN             (-1.0f)             // 电机2方向符号
 
+#define LINE_FOLLOW_BASE_SPEED      (12000.0f)
+#define LINE_FOLLOW_MIN_SPEED       (6000.0f)
+#define LINE_FOLLOW_STOP_SPEED      (0.0f)
+#define LINE_FOLLOW_SERVO_KP        (0.35f)
+#define LINE_FOLLOW_TURN_SLOW_KP    (110.0f)
+#define LINE_FOLLOW_MAX_ERROR       ((float)(SEARCH_IMAGE_W / 2))
+#define LINE_FOLLOW_ROW_FAR         (SEARCH_IMAGE_H * 2 / 3)
+#define LINE_FOLLOW_ROW_NEAR        (SEARCH_IMAGE_H - 12)
+#define LINE_FOLLOW_ROW_STEP        (8)
+#define LINE_FOLLOW_MIN_WIDTH       (20)
+#define LINE_FOLLOW_MAX_WIDTH       (SEARCH_IMAGE_W - 6)
+
 // 各个电机的PID参数和控制变量
 static volatile float motor1Kp = 5.0f;
 static volatile float motor1Ki = 0.5f;
@@ -44,8 +57,8 @@ static volatile float motor2Kp = 4.0f;
 static volatile float motor2Ki = 0.7f;
 static volatile float motor2Kd = 0.00f;
 
-static volatile float targetSpeedCommand1 = 29000.0f;   // 逐飞助手默认的目标速度是29000
-static volatile float targetSpeedCommand2 = 29000.0f;   
+static volatile float targetSpeedCommand1 = 0.0f;
+static volatile float targetSpeedCommand2 = 0.0f;
 static volatile float targetSpeed1 = 0.0f;              // 经过斜坡处理后的目标速度  
 static volatile float targetSpeed2 = 0.0f;
 static volatile float feedbackSpeed1 = 0.0f;            // 反馈速度
@@ -68,6 +81,8 @@ static volatile int16 encoderCount2 = 0;                // 编码器2的计数
 static volatile float oscSendTick = 0.0f;               // 发送示波器数据的计时器
 static volatile float lastParamChannel = 0.0f;          // 上次更新的参数通道 用于示波器显示
 static volatile float lastParamValue = 0.0f;            // 上次更新的参数值 用于示波器显示
+static volatile float lineFollowError = 0.0f;
+static volatile uint8 lineFollowValid = 0;
 
 // 判断绝对值是否小于某个值的函数
 static uint8 control_abs_less(float value, float limit) 
@@ -97,15 +112,15 @@ static float control_ramp_target(float current, float target)
 }
 
 // 重置PID状态
-void control_reset()
+void control_reset(void)
 {
     bit irq_backup = EA;
     EA = 0;
 
     feedbackSpeed1 = 0.0f;
     feedbackSpeed2 = 0.0f;
-    targetSpeedCommand1 = 29000.0f;
-    targetSpeedCommand2 = 29000.0f;
+    targetSpeedCommand1 = 0.0f;
+    targetSpeedCommand2 = 0.0f;
     targetSpeed1 = 0.0f;
     targetSpeed2 = 0.0f;
 
@@ -136,16 +151,17 @@ void control_reset()
 }
 
 // 初始化
-void control_Init()
+void control_Init(void)
 {
     control_reset();
     pit_ms_init(CONTROL_PIT_CH, CONTROL_PERIOD_MS, control_pit_handler);    // 初始化周期定时器用于PID计算
 }
 
-void control_task()
+void control_task(void)
 {
     seekfree_assistant_data_analysis();     // 处理来自逐飞助手的数据
     control_update();                       // 更新控制参数
+    control_line_follow_update();           // 根据中线路径更新舵机和电机目标
 
     if (oscSendTick >= OSCILLOSCOPE_SEND_PERIOD_MS)
     {
@@ -160,7 +176,125 @@ void control_task()
     system_delay_ms(CONTROL_TASK_PERIOD_MS);
 }
 
-void control_pit_handler()
+void control_set_target_speed(float motor1Target, float motor2Target)
+{
+    bit irq_backup = EA;
+    EA = 0;
+
+    targetSpeedCommand1 = control_limit(motor1Target, TARGET_SPEED_MIN, TARGET_SPEED_MAX);
+    targetSpeedCommand2 = control_limit(motor2Target, TARGET_SPEED_MIN, TARGET_SPEED_MAX);
+
+    if (control_abs_less(targetSpeedCommand1, SPEED_STOP_DEADBAND))
+    {
+        targetSpeed1 = 0.0f;
+        errorMotor1 = 0.0f;
+        errorMotor1Last = 0.0f;
+        errorMotor1Prev = 0.0f;
+        deltaOutput1 = 0.0f;
+        output1 = 0.0f;
+    }
+
+    if (control_abs_less(targetSpeedCommand2, SPEED_STOP_DEADBAND))
+    {
+        targetSpeed2 = 0.0f;
+        errorMotor2 = 0.0f;
+        errorMotor2Last = 0.0f;
+        errorMotor2Prev = 0.0f;
+        deltaOutput2 = 0.0f;
+        output2 = 0.0f;
+    }
+
+    EA = irq_backup;
+}
+
+static uint8 control_get_line_error(float *error)
+{
+    int row;
+    uint8 weight = 1;
+    uint16 weightSum = 0;
+    int32 errorSum = 0;
+    uint8 validCount = 0;
+    uint8 left = 0;
+    uint8 right = 0;
+    uint8 width = 0;
+    int16 rowError = 0;
+
+    for (row = LINE_FOLLOW_ROW_NEAR; row >= LINE_FOLLOW_ROW_FAR; row -= LINE_FOLLOW_ROW_STEP)
+    {
+        left = left_edge_line[row];
+        right = right_edge_line[row];
+
+        if (right <= left)
+        {
+            continue;
+        }
+
+        width = right - left;
+        if (width < LINE_FOLLOW_MIN_WIDTH || width > LINE_FOLLOW_MAX_WIDTH)
+        {
+            continue;
+        }
+
+        rowError = (int16)center_line[row] - (int16)(SEARCH_IMAGE_W / 2);
+        errorSum += (int32)rowError * weight;
+        weightSum += weight;
+        validCount++;
+        weight++;
+    }
+
+    if (!validCount || !weightSum)
+    {
+        *error = 0.0f;
+        return 0;
+    }
+
+    *error = (float)errorSum / (float)weightSum;
+    *error = control_limit(*error, -LINE_FOLLOW_MAX_ERROR, LINE_FOLLOW_MAX_ERROR);
+
+    return 1;
+}
+
+void control_line_follow_update(void)
+{
+    float error = 0.0f;
+#if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
+    float servoTarget = 0.0f;
+    float speedTarget = LINE_FOLLOW_STOP_SPEED;
+#endif
+
+    if (!mt9v03x_finish_flag)
+    {
+        return;
+    }
+
+    search_line_process((const uint8 *)&mt9v03x_image[0][0]);
+
+    seekfree_assistant_camera_send();
+
+    lineFollowValid = control_get_line_error(&error);
+    lineFollowError = error;
+
+#if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
+    if (lineFollowValid)
+    {
+        servoTarget = error * LINE_FOLLOW_SERVO_KP;
+        speedTarget = LINE_FOLLOW_BASE_SPEED - func_abs(error) * LINE_FOLLOW_TURN_SLOW_KP;
+        speedTarget = control_limit(speedTarget, LINE_FOLLOW_MIN_SPEED, LINE_FOLLOW_BASE_SPEED);
+
+        Servo_SetTargetPosition(servoTarget);
+        control_set_target_speed(speedTarget, speedTarget);
+    }
+    else
+    {
+        Servo_SetTargetPosition(0.0f);
+        control_set_target_speed(LINE_FOLLOW_STOP_SPEED, LINE_FOLLOW_STOP_SPEED);
+    }
+#endif
+
+    mt9v03x_finish_flag = 0;
+}
+
+void control_pit_handler(void)
 {
     float motor1KpTemp = motor1Kp;
     float motor1KiTemp = motor1Ki;
@@ -284,7 +418,7 @@ float control_limit(float value, float low, float high)
     return value;
 }
 
-void control_update()
+void control_update(void)
 {
     bit irq_backup = EA;
     EA = 0;
@@ -380,7 +514,7 @@ void control_update()
     EA = irq_backup;
 }
 
-void control_sendOscData()
+void control_sendOscData(void)
 {
 #if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_SERVO)
     float localServoCommand = 0.0f;

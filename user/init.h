@@ -21,7 +21,7 @@
 #define SERVO_DUTY_MIN                  ( SERVO_DUTY(0.0f) )
 #define SERVO_DUTY_MAX                  ( SERVO_DUTY(180.0f) )
 #define SERVO_OUTPUT_LIMIT              ( 250.0f )
-#define SERVO_DIRECTION_SIGN            ( 1.0f )
+#define SERVO_DIRECTION_SIGN            ( -1.0f )
 #define SERVO_TARGET_RAMP_STEP          ( 1.0f )
 
 #if ((SERVO_PWM_FREQ < 50) || (SERVO_PWM_FREQ > 300))
@@ -61,7 +61,9 @@ void initAllModules();
 void Motor_Init();
 void Servo_Init();
 void Encoder_Init();
+void Camera_Init();
 void SeekfreeAssistant_Init();
+void SeekfreeAssistantCamera_Init();
 void Screen_Init();
 uint8 WifiSPI_Init();
 

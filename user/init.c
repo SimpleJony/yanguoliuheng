@@ -1,5 +1,6 @@
 #include "init.h"
 #include "servo.h"
+#include "search_line.h"
 
 void initAllModules(){
     clock_init(SYSTEM_CLOCK_96M);
@@ -7,7 +8,9 @@ void initAllModules(){
     Motor_Init();
     Servo_Init();
     Encoder_Init();
+    Camera_Init();
     SeekfreeAssistant_Init();
+    SeekfreeAssistantCamera_Init();
     //Screen_Init();
 }
 
@@ -30,6 +33,13 @@ void Encoder_Init(){
     encoder_quad_init(SPEED_ENCODER2, SPEED_ENCODER2_PULSE_PIN, SPEED_ENCODER2_DIR_PIN);
 }
 
+void Camera_Init(){
+    if(mt9v03x_init())
+    {
+        printf("\r\n mt9v03x init failed. \r\n");
+    }
+}
+
 void Servo_Init(){
     pwm_init(SERVO_PWM, SERVO_PWM_FREQ, 0);
     Servo_Reset();
@@ -47,6 +57,21 @@ void SeekfreeAssistant_Init(){
     printf("\r\n wifi spi init failed, fallback to debug uart. \r\n");
 #endif
     seekfree_assistant_interface_init(SEEKFREE_ASSISTANT_DEBUG_UART);
+}
+
+void SeekfreeAssistantCamera_Init(){
+    seekfree_assistant_camera_information_config(SEEKFREE_ASSISTANT_MT9V03X,
+                                                 mt9v03x_image[0],
+                                                 MT9V03X_W,
+                                                 MT9V03X_H);
+    seekfree_assistant_camera_boundary_config(X_BOUNDARY,
+                                              SEARCH_IMAGE_H,
+                                              left_edge_line,
+                                              center_line,
+                                              right_edge_line,
+                                              NULL,
+                                              NULL,
+                                              NULL);
 }
 
 void Screen_Init(){
