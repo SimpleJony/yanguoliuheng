@@ -519,8 +519,8 @@ void control_pit_handler(void)
     Motor1_SetSpeed(outputTemp1);
     Motor2_SetSpeed(outputTemp2);
 #elif (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
-    Motor1_SetSpeed(0.0f);
-    Motor2_SetSpeed(0.0f);
+    Motor1_SetSpeed(outputTemp1);
+    Motor2_SetSpeed(outputTemp2);
     Servo_PositionPdUpdate();
 #else
 #error "SEEKFREE_ASSISTANT_TUNE_TARGET must be ASSISTANT_TUNE_MOTOR, ASSISTANT_TUNE_SERVO or ASSISTANT_TUNE_NONE"
