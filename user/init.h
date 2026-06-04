@@ -48,7 +48,7 @@
 #define SEEKFREE_ASSISTANT_TUNE_TARGET  ( ASSISTANT_TUNE_NONE )
 
 // 配置网络信息
-#define SEEKFREE_ASSISTANT_USE_WIFI_SPI     ( 1 )
+#define SEEKFREE_ASSISTANT_USE_WIFI_SPI     ( 0 )
 #define WIFI_SSID                           "Xiaomi 17 Pro"
 #define WIFI_PASSWORD                       "jony123456"
 #define WIFI_TRANSPORT_TYPE                 "UDP"

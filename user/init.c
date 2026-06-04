@@ -11,7 +11,7 @@ void initAllModules(){
     Camera_Init();
     SeekfreeAssistant_Init();
     SeekfreeAssistantCamera_Init();
-    //Screen_Init();
+    Screen_Init();
 }
 
 void Motor_Init(){
