@@ -1,6 +1,7 @@
 #include "control.h"
 #include "servo.h"
 #include "search_line.h"
+#include "image_transfer.h"
 
 // 逐飞助手的参数通道
 #define PARAM_MOTOR1_KP_INDEX       (0)
@@ -161,8 +162,10 @@ void control_task(void)
 {
     seekfree_assistant_data_analysis();     // 处理来自逐飞助手的数据
     control_update();                       // 更新控制参数
+    ImageTransfer_Tick(CONTROL_TASK_PERIOD_MS);
     control_line_follow_update();           // 根据中线路径更新舵机和电机目标
 
+#if (!SEEKFREE_ASSISTANT_USE_WIFI_SPI)
     if (oscSendTick >= OSCILLOSCOPE_SEND_PERIOD_MS)
     {
         oscSendTick = 0.0f;
@@ -172,6 +175,7 @@ void control_task(void)
     {
         oscSendTick += CONTROL_TASK_PERIOD_MS;
     }
+#endif
 
     system_delay_ms(CONTROL_TASK_PERIOD_MS);
 }
@@ -269,8 +273,6 @@ void control_line_follow_update(void)
 
     search_line_process((const uint8 *)&mt9v03x_image[0][0]);
 
-    seekfree_assistant_camera_send();
-
     lineFollowValid = control_get_line_error(&error);
     lineFollowError = error;
 
@@ -290,6 +292,8 @@ void control_line_follow_update(void)
         control_set_target_speed(LINE_FOLLOW_STOP_SPEED, LINE_FOLLOW_STOP_SPEED);
     }
 #endif
+
+    ImageTransfer_SendFrame();
 
     mt9v03x_finish_flag = 0;
 }

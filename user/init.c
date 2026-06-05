@@ -1,6 +1,7 @@
 #include "init.h"
 #include "servo.h"
 #include "search_line.h"
+#include "image_transfer.h"
 
 void initAllModules(){
     clock_init(SYSTEM_CLOCK_96M);
@@ -60,18 +61,7 @@ void SeekfreeAssistant_Init(){
 }
 
 void SeekfreeAssistantCamera_Init(){
-    seekfree_assistant_camera_information_config(SEEKFREE_ASSISTANT_MT9V03X,
-                                                 mt9v03x_image[0],
-                                                 MT9V03X_W,
-                                                 MT9V03X_H);
-    seekfree_assistant_camera_boundary_config(X_BOUNDARY,
-                                              SEARCH_IMAGE_H,
-                                              left_edge_line,
-                                              center_line,
-                                              right_edge_line,
-                                              NULL,
-                                              NULL,
-                                              NULL);
+    ImageTransfer_Init();
 }
 
 void Screen_Init(){

@@ -855,6 +855,16 @@
               <FilePath>.\user\init.h</FilePath>
             </File>
             <File>
+              <FileName>image_transfer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\image_transfer.c</FilePath>
+            </File>
+            <File>
+              <FileName>image_transfer.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\image_transfer.h</FilePath>
+            </File>
+            <File>
               <FileName>control.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\user\control.c</FilePath>
