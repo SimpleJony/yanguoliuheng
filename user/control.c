@@ -37,8 +37,8 @@
 #define MOTOR1_DIR_SIGN             (-1.0f)             // 电机1方向符号
 #define MOTOR2_DIR_SIGN             (-1.0f)             // 电机2方向符号
 
-#define LINE_FOLLOW_BASE_SPEED      (15000.0f)
-#define LINE_FOLLOW_MIN_SPEED       (8000.0f)
+#define LINE_FOLLOW_BASE_SPEED      (12000.0f)
+#define LINE_FOLLOW_MIN_SPEED       (6000.0f)
 #define LINE_FOLLOW_STOP_SPEED      (0.0f)
 #define LINE_FOLLOW_SERVO_KP        (0.35f)
 #define LINE_FOLLOW_TURN_SLOW_KP    (110.0f)
@@ -48,13 +48,6 @@
 #define LINE_FOLLOW_ROW_STEP        (8)
 #define LINE_FOLLOW_MIN_WIDTH       (20)
 #define LINE_FOLLOW_MAX_WIDTH       (SEARCH_IMAGE_W - 6)
-#define SCREEN_IMAGE_X              (0)
-#define SCREEN_IMAGE_Y              (0)
-#define SCREEN_IMAGE_W              (240)
-#define SCREEN_IMAGE_H              (153)
-#define SCREEN_INFO_Y               (SCREEN_IMAGE_Y + SCREEN_IMAGE_H + 4)
-#define SCREEN_LINE_DRAW_STEP       (2)
-#define SCREEN_LINE_THICKNESS       (3)
 
 // 各个电机的PID参数和控制变量
 static volatile float motor1Kp = 5.0f;
@@ -90,9 +83,6 @@ static volatile float lastParamChannel = 0.0f;          // 上次更新的参数
 static volatile float lastParamValue = 0.0f;            // 上次更新的参数值 用于示波器显示
 static volatile float lineFollowError = 0.0f;
 static volatile uint8 lineFollowValid = 0;
-static volatile uint16 screenFpsElapsedMs = 0;
-static uint16 screenFrameCount = 0;
-static uint16 screenFps = 0;
 
 // 判断绝对值是否小于某个值的函数
 static uint8 control_abs_less(float value, float limit) 
@@ -264,114 +254,6 @@ static uint8 control_get_line_error(float *error)
     return 1;
 }
 
-static void control_screen_draw_lines(void)
-{
-    uint16 row;
-    uint16 x;
-    uint16 y;
-    uint16 dx;
-    uint16 dy;
-
-    for(row = 0; row < SEARCH_IMAGE_H; row += SCREEN_LINE_DRAW_STEP)
-    {
-        y = SCREEN_IMAGE_Y + row * SCREEN_IMAGE_H / SEARCH_IMAGE_H;
-
-        x = SCREEN_IMAGE_X + (uint16)left_edge_line[row] * SCREEN_IMAGE_W / SEARCH_IMAGE_W;
-        if(x < (SCREEN_IMAGE_X + SCREEN_IMAGE_W))
-        {
-            for(dy = 0; dy < SCREEN_LINE_THICKNESS; dy++)
-            {
-                for(dx = 0; dx < SCREEN_LINE_THICKNESS; dx++)
-                {
-                    if((x + dx) < (SCREEN_IMAGE_X + SCREEN_IMAGE_W)
-                       && (y + dy) < (SCREEN_IMAGE_Y + SCREEN_IMAGE_H))
-                    {
-                        ips200_draw_point(x + dx, y + dy, RGB565_RED);
-                    }
-                }
-            }
-        }
-
-        x = SCREEN_IMAGE_X + (uint16)center_line[row] * SCREEN_IMAGE_W / SEARCH_IMAGE_W;
-        if(x < (SCREEN_IMAGE_X + SCREEN_IMAGE_W))
-        {
-            for(dy = 0; dy < SCREEN_LINE_THICKNESS; dy++)
-            {
-                for(dx = 0; dx < SCREEN_LINE_THICKNESS; dx++)
-                {
-                    if((x + dx) < (SCREEN_IMAGE_X + SCREEN_IMAGE_W)
-                       && (y + dy) < (SCREEN_IMAGE_Y + SCREEN_IMAGE_H))
-                    {
-                        ips200_draw_point(x + dx, y + dy, RGB565_GREEN);
-                    }
-                }
-            }
-        }
-
-        x = SCREEN_IMAGE_X + (uint16)right_edge_line[row] * SCREEN_IMAGE_W / SEARCH_IMAGE_W;
-        if(x < (SCREEN_IMAGE_X + SCREEN_IMAGE_W))
-        {
-            for(dy = 0; dy < SCREEN_LINE_THICKNESS; dy++)
-            {
-                for(dx = 0; dx < SCREEN_LINE_THICKNESS; dx++)
-                {
-                    if((x + dx) < (SCREEN_IMAGE_X + SCREEN_IMAGE_W)
-                       && (y + dy) < (SCREEN_IMAGE_Y + SCREEN_IMAGE_H))
-                    {
-                        ips200_draw_point(x + dx, y + dy, RGB565_BLUE);
-                    }
-                }
-            }
-        }
-    }
-}
-
-static void control_screen_update_fps(void)
-{
-    bit irq_backup = EA;
-    uint16 elapsed;
-
-    screenFrameCount++;
-
-    if(screenFpsElapsedMs < 1000)
-    {
-        return;
-    }
-
-    EA = 0;
-    elapsed = screenFpsElapsedMs;
-    screenFpsElapsedMs = 0;
-    EA = irq_backup;
-
-    if(elapsed > 0)
-    {
-        screenFps = (uint16)((uint32)screenFrameCount * 1000UL / (uint32)elapsed);
-    }
-    screenFrameCount = 0;
-}
-
-static void control_screen_show_frame(void)
-{
-    control_screen_update_fps();
-
-    ips200_show_gray_image(SCREEN_IMAGE_X,
-                           SCREEN_IMAGE_Y,
-                           (const uint8 *)&mt9v03x_image[0][0],
-                           SEARCH_IMAGE_W,
-                           SEARCH_IMAGE_H,
-                           SCREEN_IMAGE_W,
-                           SCREEN_IMAGE_H,
-                           0);
-    control_screen_draw_lines();
-
-    ips200_set_color(RGB565_BLACK, RGB565_WHITE);
-    ips200_show_string(0, SCREEN_INFO_Y, "FPS:");
-    ips200_show_uint16(32, SCREEN_INFO_Y, screenFps);
-    ips200_show_string(72, SCREEN_INFO_Y, "IF:");
-    ips200_show_int32(96, SCREEN_INFO_Y, (int32)if_count, 5);
-    ips200_show_string(0, SCREEN_INFO_Y + 16, lineFollowValid ? "LINE:OK  " : "LINE:LOST");
-}
-
 void control_line_follow_update(void)
 {
     float error = 0.0f;
@@ -387,9 +269,10 @@ void control_line_follow_update(void)
 
     search_line_process((const uint8 *)&mt9v03x_image[0][0]);
 
+    seekfree_assistant_camera_send();
+
     lineFollowValid = control_get_line_error(&error);
     lineFollowError = error;
-    control_screen_show_frame();
 
 #if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
     if (lineFollowValid)
@@ -427,11 +310,6 @@ void control_pit_handler(void)
     float deltaOutputTemp2 = 0.0f;
     float outputTemp1 = 0.0f;
     float outputTemp2 = 0.0f;
-
-    if(screenFpsElapsedMs < (60000U - CONTROL_PERIOD_MS))
-    {
-        screenFpsElapsedMs += CONTROL_PERIOD_MS;
-    }
 
     encoderCount1 = ENCODER1_DIR_SIGN * encoder_get_count(SPEED_ENCODER1);
     encoderCount2 = ENCODER2_DIR_SIGN * encoder_get_count(SPEED_ENCODER2);
