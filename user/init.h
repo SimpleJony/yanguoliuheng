@@ -17,7 +17,7 @@
 #define SERVO_PWM                       ( PWME_CH1P_PA0 )
 #define SERVO_PWM_FREQ                  ( 50 )
 #define SERVO_DUTY(angle)               ((float)PWM_DUTY_MAX / (1000.0f / (float)SERVO_PWM_FREQ) * (0.5f + (float)(angle) / 90.0f))
-#define SERVO_DUTY_CENTER               ( 740.0f )
+#define SERVO_DUTY_CENTER               ( 825.0f )
 #define SERVO_DUTY_MIN                  ( SERVO_DUTY(0.0f) )
 #define SERVO_DUTY_MAX                  ( SERVO_DUTY(180.0f) )
 #define SERVO_OUTPUT_LIMIT              ( 250.0f )
@@ -52,7 +52,7 @@
 #define WIFI_SSID                           "Xiaomi 17 Pro"
 #define WIFI_PASSWORD                       "jony123456"
 #define WIFI_TRANSPORT_TYPE                 "TCP"
-#define WIFI_TARGET_IP                      "10.168.248.145"
+#define WIFI_TARGET_IP                      "172.17.253.145"
 #define WIFI_TARGET_PORT                    "8086"
 #define WIFI_LOCAL_PORT                     "8086"
 #define WIFI_CONNECT_RETRY_MAX              ( 5 )
