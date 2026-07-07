@@ -1,4 +1,4 @@
-#include "control.h"
+﻿#include "control.h"
 #include "servo.h"
 #include "search_line.h"
 #include "image_transfer.h"
@@ -22,7 +22,7 @@
 #define TARGET_SPEED_MIN            (-30000.0f)         // 目标速度最小值
 #define TARGET_SPEED_MAX            (30000.0f)          // 目标速度最大值
 #define TARGET_RAMP_STEP            (400.0f)            // 目标速度斜坡步长
-#define SPEED_LOOP_DUTY_LIMIT       (35.0f)             // 占空比限制
+#define SPEED_LOOP_DUTY_LIMIT       (50.0f)             // 占空比限制
 #define SPEED_STOP_DEADBAND         (0.1f)              // 速度停止死区
 #define PID_ZERO_DEADBAND           (0.00000001f)       // PID参数零死区
 #define SPEED_ENCODER_PPR           (1024.0f)           // 编码器每转脉冲数
@@ -38,10 +38,10 @@
 #define MOTOR1_DIR_SIGN             (-1.0f)             // 电机1方向符号
 #define MOTOR2_DIR_SIGN             (-1.0f)             // 电机2方向符号
 
-#define LINE_FOLLOW_BASE_SPEED      (12000.0f)
-#define LINE_FOLLOW_MIN_SPEED       (6000.0f)
+#define LINE_FOLLOW_BASE_SPEED      (16000.0f)
+#define LINE_FOLLOW_MIN_SPEED       (8000.0f)
 #define LINE_FOLLOW_STOP_SPEED      (0.0f)
-#define LINE_FOLLOW_SERVO_KP        (0.35f)
+#define LINE_FOLLOW_SERVO_KP        (0.50f)
 #define LINE_FOLLOW_TURN_SLOW_KP    (110.0f)
 #define LINE_FOLLOW_MAX_ERROR       ((float)(SEARCH_IMAGE_W / 2))
 #define LINE_FOLLOW_ROW_FAR         (SEARCH_IMAGE_H * 2 / 3)
@@ -79,7 +79,7 @@ static volatile float output2 = 0.0f;
 
 static volatile int16 encoderCount1 = 0;                // 编码器1的计数
 static volatile int16 encoderCount2 = 0;                // 编码器2的计数
-static volatile float oscSendTick = 0.0f;               // 发送示波器数据的计时器
+static volatile uint32 g_sysTickMs = 0;                 // 系统滴答（PIT中断驱动，10ms粒度）
 static volatile float lastParamChannel = 0.0f;          // 上次更新的参数通道 用于示波器显示
 static volatile float lastParamValue = 0.0f;            // 上次更新的参数值 用于示波器显示
 static volatile float lineFollowError = 0.0f;
@@ -160,24 +160,26 @@ void control_Init(void)
 
 void control_task(void)
 {
-    seekfree_assistant_data_analysis();     // 处理来自逐飞助手的数据
-    control_update();                       // 更新控制参数
-    ImageTransfer_Tick(CONTROL_TASK_PERIOD_MS);
-    control_line_follow_update();           // 根据中线路径更新舵机和电机目标
+    static uint32 s_lastTask = 0, s_lastOsc = 0;
+    uint32 now;
+    { bit b = EA; EA = 0; now = g_sysTickMs; EA = b; }
+
+    /* 非阻塞：时间未到直接让出CPU给图像处理 */
+    if ((now - s_lastTask) < CONTROL_PERIOD_MS) return;
+    s_lastTask = now;
+
+    seekfree_assistant_data_analysis();
+    control_update();
+    ImageTransfer_Tick(CONTROL_PERIOD_MS);
+    control_line_follow_update();
 
 #if (!SEEKFREE_ASSISTANT_USE_WIFI_SPI)
-    if (oscSendTick >= OSCILLOSCOPE_SEND_PERIOD_MS)
+    if ((now - s_lastOsc) >= OSCILLOSCOPE_SEND_PERIOD_MS)
     {
-        oscSendTick = 0.0f;
+        s_lastOsc = now;
         control_sendOscData();
     }
-    else
-    {
-        oscSendTick += CONTROL_TASK_PERIOD_MS;
-    }
 #endif
-
-    system_delay_ms(CONTROL_TASK_PERIOD_MS);
 }
 
 void control_set_target_speed(float motor1Target, float motor2Target)
@@ -314,6 +316,8 @@ void control_pit_handler(void)
     float deltaOutputTemp2 = 0.0f;
     float outputTemp1 = 0.0f;
     float outputTemp2 = 0.0f;
+
+    g_sysTickMs += CONTROL_PERIOD_MS;    // 系统滴答，上层非阻塞定时用
 
     encoderCount1 = ENCODER1_DIR_SIGN * encoder_get_count(SPEED_ENCODER1);
     encoderCount2 = ENCODER2_DIR_SIGN * encoder_get_count(SPEED_ENCODER2);
