@@ -42,6 +42,7 @@
 #define LINE_FOLLOW_SPEED_DYNAMIC   (1)
 #define LINE_FOLLOW_SPEED_MODE      (LINE_FOLLOW_SPEED_DYNAMIC)
 #define LINE_FOLLOW_FIXED_SPEED     (12000.0f)
+#define LINE_FOLLOW_FIXED_USE_RAMP  (0)
 #define LINE_FOLLOW_DYNAMIC_SPEED   (16000.0f)
 #define LINE_FOLLOW_MIN_SPEED       (8000.0f)
 #define LINE_FOLLOW_STOP_SPEED      (0.0f)
@@ -197,6 +198,14 @@ void control_set_target_speed(float motor1Target, float motor2Target)
 
     targetSpeedCommand1 = control_limit(motor1Target, TARGET_SPEED_MIN, TARGET_SPEED_MAX);
     targetSpeedCommand2 = control_limit(motor2Target, TARGET_SPEED_MIN, TARGET_SPEED_MAX);
+
+#if (LINE_FOLLOW_SPEED_MODE == LINE_FOLLOW_SPEED_FIXED)
+    if (!LINE_FOLLOW_FIXED_USE_RAMP)
+    {
+        targetSpeed1 = targetSpeedCommand1;
+        targetSpeed2 = targetSpeedCommand2;
+    }
+#endif
 
     if (control_abs_less(targetSpeedCommand1, SPEED_STOP_DEADBAND))
     {
