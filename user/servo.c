@@ -1,25 +1,37 @@
 #include "servo.h"
 #include "init.h"
 
+#if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_SERVO)
+#define SERVO_DEFAULT_TUNE_MODE         ( 1.0f )
+#else
+#define SERVO_DEFAULT_TUNE_MODE         ( 0.0f )
+#endif
+
+static volatile float servoDirectOutput = 0.0f;
+static volatile float servoDirectCommand = 0.0f;
+static volatile float servoTuneMode = SERVO_DEFAULT_TUNE_MODE;
+static volatile float servoCenterCommand = (float)SERVO_DUTY_CENTER;
+static volatile float servoOutputCommand = 0.0f;
+
 #define SERVO_KP_MIN                    ( 0.0f )
 #define SERVO_KP_MAX                    ( 200.0f )
 #define SERVO_KD_MIN                    ( 0.0f )
 #define SERVO_KD_MAX                    ( 200.0f )
-#define SERVO_POSITION_MIN              ( -10000.0f )
-#define SERVO_POSITION_MAX              ( 10000.0f )
+#define SERVO_POSITION_MIN              ( -90.0f )
+#define SERVO_POSITION_MAX              ( 90.0f )
 #define SERVO_CENTER_MIN                ( (float)SERVO_DUTY_MIN )
 #define SERVO_CENTER_MAX                ( (float)SERVO_DUTY_MAX )
 
-static volatile float servoKp = 8.0f;                                   // 舵机Kp
-static volatile float servoKd = 2.0f;                                   // 舵机Kd
-static volatile float servoTargetCommand = 0.0f;                        // 逐飞助手发送的目标位置命令
-static volatile float servoTargetPosition = 0.0f;                       // 经过斜坡处理后的目标位置
-static volatile float servoFeedbackPosition = 0.0f;                     // 舵机反馈位置            
-static volatile float servoError = 0.0f;                                // 舵机当前位置误差
-static volatile float servoErrorLast = 0.0f;                            // 舵机上次位置误差
-static volatile float servoOutputDuty = 0.0f;                           // 舵机输出占空比
-static volatile float servoPwmDuty = (float)SERVO_DUTY_CENTER;          // 舵机PWM占空比
-static volatile float servoCenterDuty = (float)SERVO_DUTY_CENTER;       // 舵机中心位置占空比
+static volatile float servoKp = 8.0f;                                   // 閼稿灚婧€Kp
+static volatile float servoKd = 2.0f;                                   // 閼稿灚婧€Kd
+static volatile float servoTargetCommand = 0.0f;                        // 闁劙顥ｉ崝鈺傚閸欐垿鈧胶娈戦惄顔界垼娴ｅ秶鐤嗛崨鎴掓姢
+static volatile float servoTargetPosition = 0.0f;                       // 缂佸繗绻冮弬婊冩蒋婢跺嫮鎮婇崥搴ｆ畱閻╊喗鐖ｆ担宥囩枂
+static volatile float servoFeedbackPosition = 0.0f;                     // 閼稿灚婧€閸欏秹顩担宥囩枂            
+static volatile float servoError = 0.0f;                                // 閼稿灚婧€瑜版挸澧犳担宥囩枂鐠囶垰妯?
+static volatile float servoErrorLast = 0.0f;                            // 閼稿灚婧€娑撳﹥顐兼担宥囩枂鐠囶垰妯?
+static volatile float servoOutputDuty = 0.0f;                           // 閼稿灚婧€鏉堟挸鍤崡鐘碘敄濮?
+static volatile float servoPwmDuty = (float)SERVO_DUTY_CENTER;          // 閼稿灚婧€PWM閸楃姷鈹栧В?
+static volatile float servoCenterDuty = (float)SERVO_DUTY_CENTER;       // 閼稿灚婧€娑擃厼绺炬担宥囩枂閸楃姷鈹栧В?
 
 static float Servo_Limit(float value, float low, float high)
 {
@@ -41,17 +53,17 @@ static void Servo_SetPwmDuty(float duty)
     pwm_set_duty(SERVO_PWM, (uint32)duty);
 }
 
-static float Servo_RampTarget(float current, float target)
+static float Servo_RampTarget(float current, float target, float step)
 {
     float error = target - current;
 
-    if (error > SERVO_TARGET_RAMP_STEP)
+    if (error > step)
     {
-        current += SERVO_TARGET_RAMP_STEP;
+        current += step;
     }
-    else if (error < -SERVO_TARGET_RAMP_STEP)
+    else if (error < -step)
     {
-        current -= SERVO_TARGET_RAMP_STEP;
+        current -= step;
     }
     else
     {
@@ -72,8 +84,13 @@ void Servo_Reset(void)
     servoError = 0.0f;
     servoErrorLast = 0.0f;
     servoOutputDuty = 0.0f;
+    servoOutputCommand = 0.0f;
     servoCenterDuty = (float)SERVO_DUTY_CENTER;
+    servoCenterCommand = servoCenterDuty;
     servoPwmDuty = servoCenterDuty;
+    servoDirectOutput = 0.0f;
+    servoDirectCommand = 0.0f;
+    servoTuneMode = SERVO_DEFAULT_TUNE_MODE;
 
     EA = irq_backup;
 
@@ -100,12 +117,27 @@ void Servo_PositionPdUpdate(void)
     float outputTemp = 0.0f;
     float dutyTemp = 0.0f;
 
-    servoTargetPosition = Servo_RampTarget(servoTargetPosition, servoTargetCommand);
+    servoCenterDuty = Servo_RampTarget(servoCenterDuty, servoCenterCommand, SERVO_CENTER_RAMP_STEP);
+    servoDirectOutput = Servo_RampTarget(servoDirectOutput, servoDirectCommand, SERVO_DIRECT_RAMP_STEP);
+
+    if (servoTuneMode >= 0.5f)
+    {
+        outputTemp = Servo_Limit(servoDirectOutput, -SERVO_OUTPUT_LIMIT, SERVO_OUTPUT_LIMIT);
+        dutyTemp = servoCenterDuty + SERVO_DIRECTION_SIGN * outputTemp;
+        servoError = servoTargetPosition - servoFeedbackPosition;
+        servoErrorLast = servoError;
+        servoOutputDuty = outputTemp;
+        Servo_SetPwmDuty(dutyTemp);
+        return;
+    }
+
+    servoTargetPosition = Servo_RampTarget(servoTargetPosition, servoTargetCommand, SERVO_TARGET_RAMP_STEP);
     targetTemp = servoTargetPosition;
 
     errorTemp = targetTemp - feedbackTemp;
-    outputTemp = kpTemp * errorTemp + kdTemp * (errorTemp - servoErrorLast);
-    outputTemp = Servo_Limit(outputTemp, -SERVO_OUTPUT_LIMIT, SERVO_OUTPUT_LIMIT);
+    servoOutputCommand = kpTemp * errorTemp + kdTemp * (errorTemp - servoErrorLast);
+    servoOutputCommand = Servo_Limit(servoOutputCommand, -SERVO_OUTPUT_LIMIT, SERVO_OUTPUT_LIMIT);
+    outputTemp = Servo_RampTarget(servoOutputDuty, servoOutputCommand, SERVO_OUTPUT_RAMP_STEP);
     dutyTemp = servoCenterDuty + SERVO_DIRECTION_SIGN * outputTemp;
 
     servoError = errorTemp;
@@ -145,13 +177,31 @@ void Servo_AssistantUpdate(volatile float *lastParamChannel, volatile float *las
 
     if (seekfree_assistant_parameter_update_flag[SERVO_PARAM_CENTER_CHANNEL - 1])
     {
-        servoCenterDuty = Servo_Limit(seekfree_assistant_parameter[SERVO_PARAM_CENTER_CHANNEL - 1],
-                                      SERVO_CENTER_MIN,
-                                      SERVO_CENTER_MAX);
-        Servo_SetPwmDuty(servoCenterDuty);
+        servoCenterCommand = Servo_Limit(seekfree_assistant_parameter[SERVO_PARAM_CENTER_CHANNEL - 1],
+                                         SERVO_CENTER_MIN,
+                                         SERVO_CENTER_MAX);
         *lastParamChannel = (float)SERVO_PARAM_CENTER_CHANNEL;
-        *lastParamValue = servoCenterDuty;
+        *lastParamValue = servoCenterCommand;
         seekfree_assistant_parameter_update_flag[SERVO_PARAM_CENTER_CHANNEL - 1] = 0;
+    }
+
+    if (seekfree_assistant_parameter_update_flag[SERVO_PARAM_DIRECT_CHANNEL - 1])
+    {
+        servoDirectCommand = Servo_Limit(seekfree_assistant_parameter[SERVO_PARAM_DIRECT_CHANNEL - 1],
+                                         -SERVO_OUTPUT_LIMIT,
+                                         SERVO_OUTPUT_LIMIT);
+        servoTuneMode = 1.0f;
+        *lastParamChannel = (float)SERVO_PARAM_DIRECT_CHANNEL;
+        *lastParamValue = servoDirectCommand;
+        seekfree_assistant_parameter_update_flag[SERVO_PARAM_DIRECT_CHANNEL - 1] = 0;
+    }
+
+    if (seekfree_assistant_parameter_update_flag[SERVO_PARAM_MODE_CHANNEL - 1])
+    {
+        servoTuneMode = (seekfree_assistant_parameter[SERVO_PARAM_MODE_CHANNEL - 1] >= 0.5f) ? 1.0f : 0.0f;
+        *lastParamChannel = (float)SERVO_PARAM_MODE_CHANNEL;
+        *lastParamValue = servoTuneMode;
+        seekfree_assistant_parameter_update_flag[SERVO_PARAM_MODE_CHANNEL - 1] = 0;
     }
 }
 
@@ -178,4 +228,9 @@ float Servo_GetOutputDuty(void)
 float Servo_GetPwmDuty(void)
 {
     return servoPwmDuty;
+}
+
+float Servo_GetTuneMode(void)
+{
+    return servoTuneMode;
 }

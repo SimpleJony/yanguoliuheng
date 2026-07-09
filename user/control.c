@@ -41,8 +41,8 @@
 #define LINE_FOLLOW_BASE_SPEED      (16000.0f)
 #define LINE_FOLLOW_MIN_SPEED       (8000.0f)
 #define LINE_FOLLOW_STOP_SPEED      (0.0f)
-#define LINE_FOLLOW_SERVO_KP        (0.50f)
-#define LINE_FOLLOW_TURN_SLOW_KP    (110.0f)
+#define LINE_FOLLOW_SERVO_KP        (0.30f)
+#define LINE_FOLLOW_TURN_SLOW_KP    (160.0f)
 #define LINE_FOLLOW_MAX_ERROR       ((float)(SEARCH_IMAGE_W / 2))
 #define LINE_FOLLOW_ROW_FAR         (SEARCH_IMAGE_H * 2 / 3)
 #define LINE_FOLLOW_ROW_NEAR        (SEARCH_IMAGE_H - 12)
@@ -170,16 +170,16 @@ void control_task(void)
 
     seekfree_assistant_data_analysis();
     control_update();
+#if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
     ImageTransfer_Tick(CONTROL_PERIOD_MS);
     control_line_follow_update();
+#endif
 
-#if (!SEEKFREE_ASSISTANT_USE_WIFI_SPI)
     if ((now - s_lastOsc) >= OSCILLOSCOPE_SEND_PERIOD_MS)
     {
         s_lastOsc = now;
         control_sendOscData();
     }
-#endif
 }
 
 void control_set_target_speed(float motor1Target, float motor2Target)
@@ -530,6 +530,7 @@ void control_sendOscData(void)
     float localServoFeedback = 0.0f;
     float localServoOutput = 0.0f;
     float localServoPwmDuty = 0.0f;
+    float localServoMode = 0.0f;
     float localLastParamChannel = 0.0f;
     float localLastParamValue = 0.0f;
     bit irq_backup = EA;
@@ -540,6 +541,7 @@ void control_sendOscData(void)
     localServoFeedback = Servo_GetFeedbackPosition();
     localServoOutput = Servo_GetOutputDuty();
     localServoPwmDuty = Servo_GetPwmDuty();
+    localServoMode = Servo_GetTuneMode();
     localLastParamChannel = lastParamChannel;
     localLastParamValue = lastParamValue;
 
@@ -550,9 +552,10 @@ void control_sendOscData(void)
     seekfree_assistant_oscilloscope_data.dat[2] = localServoFeedback;
     seekfree_assistant_oscilloscope_data.dat[3] = localServoOutput;
     seekfree_assistant_oscilloscope_data.dat[4] = localServoPwmDuty;
-    seekfree_assistant_oscilloscope_data.dat[5] = localLastParamChannel;
-    seekfree_assistant_oscilloscope_data.dat[6] = localLastParamValue;
-    seekfree_assistant_oscilloscope_data.channel_num = 7;
+    seekfree_assistant_oscilloscope_data.dat[5] = localServoMode;
+    seekfree_assistant_oscilloscope_data.dat[6] = localLastParamChannel;
+    seekfree_assistant_oscilloscope_data.dat[7] = localLastParamValue;
+    seekfree_assistant_oscilloscope_data.channel_num = 8;
 
     seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
 #elif (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_MOTOR)

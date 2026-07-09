@@ -11,7 +11,9 @@ void initAllModules(){
     Encoder_Init();
     Camera_Init();
     SeekfreeAssistant_Init();
+#if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
     SeekfreeAssistantCamera_Init();
+#endif
     //Screen_Init();
 }
 
