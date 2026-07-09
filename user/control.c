@@ -38,17 +38,25 @@
 #define MOTOR1_DIR_SIGN             (-1.0f)             // 电机1方向符号
 #define MOTOR2_DIR_SIGN             (-1.0f)             // 电机2方向符号
 
-#define LINE_FOLLOW_BASE_SPEED      (16000.0f)
+#define LINE_FOLLOW_SPEED_FIXED     (0)
+#define LINE_FOLLOW_SPEED_DYNAMIC   (1)
+#define LINE_FOLLOW_SPEED_MODE      (LINE_FOLLOW_SPEED_DYNAMIC)
+#define LINE_FOLLOW_FIXED_SPEED     (12000.0f)
+#define LINE_FOLLOW_DYNAMIC_SPEED   (16000.0f)
 #define LINE_FOLLOW_MIN_SPEED       (8000.0f)
 #define LINE_FOLLOW_STOP_SPEED      (0.0f)
-#define LINE_FOLLOW_SERVO_KP        (0.30f)
 #define LINE_FOLLOW_TURN_SLOW_KP    (160.0f)
+#define LINE_FOLLOW_SERVO_KP        (0.30f)
 #define LINE_FOLLOW_MAX_ERROR       ((float)(SEARCH_IMAGE_W / 2))
 #define LINE_FOLLOW_ROW_FAR         (SEARCH_IMAGE_H * 2 / 3)
 #define LINE_FOLLOW_ROW_NEAR        (SEARCH_IMAGE_H - 12)
 #define LINE_FOLLOW_ROW_STEP        (8)
 #define LINE_FOLLOW_MIN_WIDTH       (20)
 #define LINE_FOLLOW_MAX_WIDTH       (SEARCH_IMAGE_W - 6)
+
+#if ((LINE_FOLLOW_SPEED_MODE != LINE_FOLLOW_SPEED_FIXED) && (LINE_FOLLOW_SPEED_MODE != LINE_FOLLOW_SPEED_DYNAMIC))
+    #error "LINE_FOLLOW_SPEED_MODE must be LINE_FOLLOW_SPEED_FIXED or LINE_FOLLOW_SPEED_DYNAMIC"
+#endif
 
 // 各个电机的PID参数和控制变量
 static volatile float motor1Kp = 5.0f;
@@ -282,8 +290,14 @@ void control_line_follow_update(void)
     if (lineFollowValid)
     {
         servoTarget = error * LINE_FOLLOW_SERVO_KP;
-        speedTarget = LINE_FOLLOW_BASE_SPEED - func_abs(error) * LINE_FOLLOW_TURN_SLOW_KP;
-        speedTarget = control_limit(speedTarget, LINE_FOLLOW_MIN_SPEED, LINE_FOLLOW_BASE_SPEED);
+#if (LINE_FOLLOW_SPEED_MODE == LINE_FOLLOW_SPEED_FIXED)
+        speedTarget = LINE_FOLLOW_FIXED_SPEED;
+#elif (LINE_FOLLOW_SPEED_MODE == LINE_FOLLOW_SPEED_DYNAMIC)
+        speedTarget = LINE_FOLLOW_DYNAMIC_SPEED - func_abs(error) * LINE_FOLLOW_TURN_SLOW_KP;
+        speedTarget = control_limit(speedTarget, LINE_FOLLOW_MIN_SPEED, LINE_FOLLOW_DYNAMIC_SPEED);
+#else
+        speedTarget = LINE_FOLLOW_STOP_SPEED;
+#endif
 
         Servo_SetTargetPosition(servoTarget);
         control_set_target_speed(speedTarget, speedTarget);
