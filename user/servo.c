@@ -22,16 +22,16 @@ static volatile float servoOutputCommand = 0.0f;
 #define SERVO_CENTER_MIN                ( (float)SERVO_DUTY_MIN )
 #define SERVO_CENTER_MAX                ( (float)SERVO_DUTY_MAX )
 
-static volatile float servoKp = 8.0f;                                   // 閼稿灚婧€Kp
-static volatile float servoKd = 2.0f;                                   // 閼稿灚婧€Kd
-static volatile float servoTargetCommand = 0.0f;                        // 闁劙顥ｉ崝鈺傚閸欐垿鈧胶娈戦惄顔界垼娴ｅ秶鐤嗛崨鎴掓姢
-static volatile float servoTargetPosition = 0.0f;                       // 缂佸繗绻冮弬婊冩蒋婢跺嫮鎮婇崥搴ｆ畱閻╊喗鐖ｆ担宥囩枂
-static volatile float servoFeedbackPosition = 0.0f;                     // 閼稿灚婧€閸欏秹顩担宥囩枂            
-static volatile float servoError = 0.0f;                                // 閼稿灚婧€瑜版挸澧犳担宥囩枂鐠囶垰妯?
-static volatile float servoErrorLast = 0.0f;                            // 閼稿灚婧€娑撳﹥顐兼担宥囩枂鐠囶垰妯?
-static volatile float servoOutputDuty = 0.0f;                           // 閼稿灚婧€鏉堟挸鍤崡鐘碘敄濮?
-static volatile float servoPwmDuty = (float)SERVO_DUTY_CENTER;          // 閼稿灚婧€PWM閸楃姷鈹栧В?
-static volatile float servoCenterDuty = (float)SERVO_DUTY_CENTER;       // 閼稿灚婧€娑擃厼绺炬担宥囩枂閸楃姷鈹栧В?
+static volatile float servoKp = 8.0f;                              
+static volatile float servoKd = 2.0f;                              
+static volatile float servoTargetCommand = 0.0f;                   
+static volatile float servoTargetPosition = 0.0f;                  
+static volatile float servoFeedbackPosition = 0.0f;                
+static volatile float servoError = 0.0f;                           
+static volatile float servoErrorLast = 0.0f;                       
+static volatile float servoOutputDuty = 0.0f;                      
+static volatile float servoPwmDuty = (float)SERVO_DUTY_CENTER;     
+static volatile float servoCenterDuty = (float)SERVO_DUTY_CENTER;  
 
 static float Servo_Limit(float value, float low, float high)
 {
@@ -99,12 +99,22 @@ void Servo_Reset(void)
 
 void Servo_SetPosition(float position)
 {
+    bit irq_backup = EA;
+    EA = 0;
+
     servoFeedbackPosition = Servo_Limit(position, SERVO_POSITION_MIN, SERVO_POSITION_MAX);
+
+    EA = irq_backup;
 }
 
 void Servo_SetTargetPosition(float target)
 {
+    bit irq_backup = EA;
+    EA = 0;
+
     servoTargetCommand = Servo_Limit(target, SERVO_POSITION_MIN, SERVO_POSITION_MAX);
+
+    EA = irq_backup;
 }
 
 void Servo_PositionPdUpdate(void)
