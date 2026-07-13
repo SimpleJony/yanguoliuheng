@@ -42,17 +42,23 @@
 
 #define LINE_FOLLOW_SPEED_FIXED     (0)
 #define LINE_FOLLOW_SPEED_DYNAMIC   (1)
-#define LINE_FOLLOW_SPEED_MODE      (LINE_FOLLOW_SPEED_DYNAMIC)
-#define LINE_FOLLOW_FIXED_SPEED     (12000.0f)
+#define LINE_FOLLOW_SPEED_MODE      (LINE_FOLLOW_SPEED_FIXED)
+#define LINE_FOLLOW_FIXED_SPEED     (16000.0f)
 #define LINE_FOLLOW_FIXED_USE_RAMP  (0)
 #define LINE_FOLLOW_DYNAMIC_SPEED   (16000.0f)
 #define LINE_FOLLOW_MIN_SPEED       (6000.0f)
 #define LINE_FOLLOW_STOP_SPEED      (0.0f)
 #define LINE_FOLLOW_TURN_SLOW_KP    (280.0f)
-#define LINE_FOLLOW_SERVO_KP_SMALL  (0.28f)             // 直线附近使用较小增益，减少高速摇摆
+#define LINE_FOLLOW_SERVO_KP_SMALL  (0.22f)             // 直线附近使用较小增益，减少高速摇摆
 #define LINE_FOLLOW_SERVO_KP_LARGE  (0.42f)             // 大偏差使用较大增益，保证入弯响应
 #define LINE_FOLLOW_SERVO_KP_SWITCH (6.0f)              // 大小误差增益切换点
-#define LINE_FOLLOW_YAW_DAMP_KP     (0.015f)            // 接近中心线时的偏航角速度阻尼
+#define LINE_FOLLOW_ERROR_FILTER_ALPHA (0.35f)          // 直线小误差低通滤波系数
+#define LINE_FOLLOW_ERROR_DEADBAND  (0.60f)             // 直线图像误差死区(像素)
+#define LINE_FOLLOW_ERROR_FAST_THRESHOLD (6.0f)         // 超过该误差时跳过滤波，保证入弯响应
+#define LINE_FOLLOW_YAW_DAMP_KP_MIN (0.020f)            // 车身平稳时的基础偏航阻尼
+#define LINE_FOLLOW_YAW_DAMP_KP_MAX (0.040f)            // 车身剧烈运动时的最大偏航阻尼
+#define LINE_FOLLOW_YAW_DAMP_FORWARD_ACC_KP (0.010f)    // 纵向加速度对偏航阻尼的调度系数
+#define LINE_FOLLOW_YAW_DAMP_LATERAL_ACC_KP (0.050f)    // 横向加速度对偏航阻尼的调度系数
 #define LINE_FOLLOW_YAW_DAMP_ERROR  (5.0f)              // 图像误差小于该值时IMU才干预舵机
 #define LINE_FOLLOW_YAW_SLOW_KP      (10.0f)            // 实际偏航角速度对应的额外减速系数
 #define LINE_FOLLOW_FORWARD_ACC_SLOW_KP (800.0f)        // 纵向冲击对应的额外减速系数
@@ -102,11 +108,33 @@ static volatile float lastParamChannel = 0.0f;          // 上次更新的参数
 static volatile float lastParamValue = 0.0f;            // 上次更新的参数值 用于示波器显示
 static volatile float lineFollowError = 0.0f;
 static volatile uint8 lineFollowValid = 0;
+static float lineFollowFilteredError = 0.0f;
 
 // 判断绝对值是否小于某个值的函数
 static uint8 control_abs_less(float value, float limit) 
 {
     return ((value < limit) && (value > -limit));
+}
+
+// 小误差滤波抑制摄像头抖动；大误差直接通过，避免牺牲入弯响应。
+static float control_filter_line_error(float error)
+{
+    if (func_abs(error) >= LINE_FOLLOW_ERROR_FAST_THRESHOLD)
+    {
+        lineFollowFilteredError = error;
+    }
+    else
+    {
+        lineFollowFilteredError += LINE_FOLLOW_ERROR_FILTER_ALPHA
+                                 * (error - lineFollowFilteredError);
+    }
+
+    if (func_abs(lineFollowFilteredError) < LINE_FOLLOW_ERROR_DEADBAND)
+    {
+        return 0.0f;
+    }
+
+    return lineFollowFilteredError;
 }
 
 // 直线小误差低增益，弯道大误差高增益，并在切换点保持输出连续。
@@ -187,6 +215,9 @@ void control_reset(void)
     encoderCount2 = 0;
     lastParamChannel = 0.0f;
     lastParamValue = 0.0f;
+    lineFollowError = 0.0f;
+    lineFollowValid = 0;
+    lineFollowFilteredError = 0.0f;
 
     EA = irq_backup;
 
@@ -323,6 +354,7 @@ void control_line_follow_update(void)
     float speedTarget = LINE_FOLLOW_STOP_SPEED;
     float yawRate = 0.0f;
     float yawDampScale = 0.0f;
+    float yawDampKp = LINE_FOLLOW_YAW_DAMP_KP_MIN;
     float forwardAcceleration = 0.0f;
     float lateralAcceleration = 0.0f;
 #endif
@@ -335,11 +367,12 @@ void control_line_follow_update(void)
     search_line_process((const uint8 *)&mt9v03x_image[0][0]);
 
     lineFollowValid = control_get_line_error(&error);
-    lineFollowError = error;
 
 #if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
     if (lineFollowValid)
     {
+        error = control_filter_line_error(error);
+        lineFollowError = error;
         servoTarget = control_get_servo_target(error);
         if (Accelerator_IsReady())
         {
@@ -347,12 +380,20 @@ void control_line_follow_update(void)
             forwardAcceleration = Accelerator_GetForwardAcceleration();
             lateralAcceleration = Accelerator_GetLateralAcceleration();
 
+            // X/Y只调节阻尼强度，不直接决定舵机方向，固定速度保持不变。
+            yawDampKp = LINE_FOLLOW_YAW_DAMP_KP_MIN
+                      + func_abs(forwardAcceleration) * LINE_FOLLOW_YAW_DAMP_FORWARD_ACC_KP
+                      + func_abs(lateralAcceleration) * LINE_FOLLOW_YAW_DAMP_LATERAL_ACC_KP;
+            yawDampKp = control_limit(yawDampKp,
+                                      LINE_FOLLOW_YAW_DAMP_KP_MIN,
+                                      LINE_FOLLOW_YAW_DAMP_KP_MAX);
+
             // 弯中由图像全力控制；接近中心线时再逐渐加入IMU阻尼，避免压制正常转向。
             if (func_abs(error) < LINE_FOLLOW_YAW_DAMP_ERROR)
             {
                 yawDampScale = (LINE_FOLLOW_YAW_DAMP_ERROR - func_abs(error))
                              / LINE_FOLLOW_YAW_DAMP_ERROR;
-                servoTarget -= yawRate * LINE_FOLLOW_YAW_DAMP_KP * yawDampScale;
+                servoTarget -= yawRate * yawDampKp * yawDampScale;
             }
         }
 #if (LINE_FOLLOW_SPEED_MODE == LINE_FOLLOW_SPEED_FIXED)
@@ -375,6 +416,8 @@ void control_line_follow_update(void)
     }
     else
     {
+        lineFollowError = 0.0f;
+        lineFollowFilteredError = 0.0f;
         Servo_SetTargetPosition(0.0f);
         control_set_target_speed(LINE_FOLLOW_STOP_SPEED, LINE_FOLLOW_STOP_SPEED);
     }
