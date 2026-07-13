@@ -855,6 +855,16 @@
               <FilePath>.\user\init.h</FilePath>
             </File>
             <File>
+              <FileName>accelerator.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\accelerator.c</FilePath>
+            </File>
+            <File>
+              <FileName>accelerator.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\accelerator.h</FilePath>
+            </File>
+            <File>
               <FileName>image_transfer.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\user\image_transfer.c</FilePath>

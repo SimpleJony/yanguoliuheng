@@ -2,6 +2,7 @@
 #include "servo.h"
 #include "search_line.h"
 #include "image_transfer.h"
+#include "accelerator.h"
 
 // 逐飞助手的参数通道
 #define PARAM_MOTOR1_KP_INDEX       (0)
@@ -21,7 +22,8 @@
 #define PID_KD_MAX                  (200.0f)            // Kd最大值
 #define TARGET_SPEED_MIN            (-30000.0f)         // 目标速度最小值
 #define TARGET_SPEED_MAX            (30000.0f)          // 目标速度最大值
-#define TARGET_RAMP_STEP            (400.0f)            // 目标速度斜坡步长
+#define TARGET_ACCEL_RAMP_STEP      (800.0f)            // 加速斜坡步长：保持平稳加速
+#define TARGET_DECEL_RAMP_STEP      (1500.0f)           // 减速斜坡步长：入弯时快速降速
 #define SPEED_LOOP_DUTY_LIMIT       (50.0f)             // 占空比限制
 #define SPEED_STOP_DEADBAND         (0.1f)              // 速度停止死区
 #define PID_ZERO_DEADBAND           (0.00000001f)       // PID参数零死区
@@ -44,10 +46,14 @@
 #define LINE_FOLLOW_FIXED_SPEED     (12000.0f)
 #define LINE_FOLLOW_FIXED_USE_RAMP  (0)
 #define LINE_FOLLOW_DYNAMIC_SPEED   (16000.0f)
-#define LINE_FOLLOW_MIN_SPEED       (8000.0f)
+#define LINE_FOLLOW_MIN_SPEED       (6000.0f)
 #define LINE_FOLLOW_STOP_SPEED      (0.0f)
-#define LINE_FOLLOW_TURN_SLOW_KP    (160.0f)
+#define LINE_FOLLOW_TURN_SLOW_KP    (280.0f)
 #define LINE_FOLLOW_SERVO_KP        (0.30f)
+#define LINE_FOLLOW_YAW_RATE_PER_PIXEL (3.0f)          // 每像素偏差对应的期望偏航角速度(度/秒)
+#define LINE_FOLLOW_YAW_FEEDBACK_KP  (0.015f)           // 偏航角速度误差到舵机目标的反馈系数
+#define LINE_FOLLOW_YAW_SLOW_KP      (10.0f)            // 实际偏航角速度对应的额外减速系数
+#define LINE_FOLLOW_YAW_RATE_LIMIT   (400.0f)           // 期望偏航角速度限幅
 #define LINE_FOLLOW_MAX_ERROR       ((float)(SEARCH_IMAGE_W / 2))
 #define LINE_FOLLOW_ROW_FAR         (SEARCH_IMAGE_H * 2 / 3)
 #define LINE_FOLLOW_ROW_NEAR        (SEARCH_IMAGE_H - 12)
@@ -104,14 +110,25 @@ static uint8 control_abs_less(float value, float limit)
 static float control_ramp_target(float current, float target)
 {
     float error = target - current;
+    float currentAbs = (current >= 0.0f) ? current : -current;
+    float targetAbs = (target >= 0.0f) ? target : -target;
+    float step = TARGET_DECEL_RAMP_STEP;
 
-    if (error > TARGET_RAMP_STEP)
+    // 同方向且目标速度绝对值更大时为加速，其余情况使用更快的减速斜坡
+    if ((((current >= 0.0f) && (target >= 0.0f))
+          || ((current <= 0.0f) && (target <= 0.0f)))
+        && (targetAbs > currentAbs))
     {
-        current += TARGET_RAMP_STEP;
+        step = TARGET_ACCEL_RAMP_STEP;
     }
-    else if (error < -TARGET_RAMP_STEP)
+
+    if (error > step)
     {
-        current -= TARGET_RAMP_STEP;
+        current += step;
+    }
+    else if (error < -step)
+    {
+        current -= step;
     }
     else
     {
@@ -177,6 +194,7 @@ void control_task(void)
     if ((now - s_lastTask) < CONTROL_PERIOD_MS) return;
     s_lastTask = now;
 
+    Accelerator_Update();
     seekfree_assistant_data_analysis();
     control_update();
 #if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
@@ -283,6 +301,8 @@ void control_line_follow_update(void)
 #if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
     float servoTarget = 0.0f;
     float speedTarget = LINE_FOLLOW_STOP_SPEED;
+    float yawRate = 0.0f;
+    float desiredYawRate = 0.0f;
 #endif
 
     if (!mt9v03x_finish_flag)
@@ -299,10 +319,22 @@ void control_line_follow_update(void)
     if (lineFollowValid)
     {
         servoTarget = error * LINE_FOLLOW_SERVO_KP;
+        if (Accelerator_IsReady())
+        {
+            yawRate = Accelerator_GetYawRate();
+            desiredYawRate = control_limit(error * LINE_FOLLOW_YAW_RATE_PER_PIXEL,
+                                           -LINE_FOLLOW_YAW_RATE_LIMIT,
+                                           LINE_FOLLOW_YAW_RATE_LIMIT);
+            servoTarget += (desiredYawRate - yawRate) * LINE_FOLLOW_YAW_FEEDBACK_KP;
+        }
 #if (LINE_FOLLOW_SPEED_MODE == LINE_FOLLOW_SPEED_FIXED)
         speedTarget = LINE_FOLLOW_FIXED_SPEED;
 #elif (LINE_FOLLOW_SPEED_MODE == LINE_FOLLOW_SPEED_DYNAMIC)
         speedTarget = LINE_FOLLOW_DYNAMIC_SPEED - func_abs(error) * LINE_FOLLOW_TURN_SLOW_KP;
+        if (Accelerator_IsReady())
+        {
+            speedTarget -= func_abs(yawRate) * LINE_FOLLOW_YAW_SLOW_KP;
+        }
         speedTarget = control_limit(speedTarget, LINE_FOLLOW_MIN_SPEED, LINE_FOLLOW_DYNAMIC_SPEED);
 #else
         speedTarget = LINE_FOLLOW_STOP_SPEED;
@@ -373,7 +405,7 @@ void control_pit_handler(void)
     else
     {
         errorTemp1 = (targetSpeed1 - feedbackSpeed1) * SPEED_METER_PER_PULSE;   // 将速度误差转换为实际距离误差，
-        if (control_abs_less(targetSpeedCommand1 - targetSpeed1, TARGET_RAMP_STEP)) // 只有在目标速度接近斜坡结束时才使用积分
+        if (control_abs_less(targetSpeedCommand1 - targetSpeed1, TARGET_ACCEL_RAMP_STEP)) // 只有在目标速度接近斜坡结束时才使用积分
         {
             motor1KiUse = motor1KiTemp;
         }
@@ -404,7 +436,7 @@ void control_pit_handler(void)
     else
     {
         errorTemp2 = (targetSpeed2 - feedbackSpeed2) * SPEED_METER_PER_PULSE;
-        if (control_abs_less(targetSpeedCommand2 - targetSpeed2, TARGET_RAMP_STEP))
+        if (control_abs_less(targetSpeedCommand2 - targetSpeed2, TARGET_ACCEL_RAMP_STEP))
         {
             motor2KiUse = motor2KiTemp;
         }
@@ -623,7 +655,7 @@ void control_sendOscData(void)
     float localFeedbackSpeed2 = 0.0f;
     float localOutput2 = 0.0f;
     float localServoTarget = 0.0f;
-    float localServoOutput = 0.0f;
+    float localYawRate = 0.0f;
     bit irq_backup = EA;
     EA = 0;
 
@@ -634,7 +666,7 @@ void control_sendOscData(void)
     localFeedbackSpeed2 = feedbackSpeed2;
     localOutput2 = output2;
     localServoTarget = Servo_GetTargetPosition();
-    localServoOutput = Servo_GetOutputDuty();
+    localYawRate = Accelerator_GetYawRate();
 
     EA = irq_backup;
 
@@ -645,7 +677,7 @@ void control_sendOscData(void)
     seekfree_assistant_oscilloscope_data.dat[4] = localFeedbackSpeed2;
     seekfree_assistant_oscilloscope_data.dat[5] = localOutput2;
     seekfree_assistant_oscilloscope_data.dat[6] = localServoTarget;
-    seekfree_assistant_oscilloscope_data.dat[7] = localServoOutput;
+    seekfree_assistant_oscilloscope_data.dat[7] = localYawRate;
     seekfree_assistant_oscilloscope_data.channel_num = 8;
 
     seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
