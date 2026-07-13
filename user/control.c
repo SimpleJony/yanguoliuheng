@@ -49,10 +49,14 @@
 #define LINE_FOLLOW_MIN_SPEED       (6000.0f)
 #define LINE_FOLLOW_STOP_SPEED      (0.0f)
 #define LINE_FOLLOW_TURN_SLOW_KP    (280.0f)
-#define LINE_FOLLOW_SERVO_KP        (0.35f)
-#define LINE_FOLLOW_YAW_DAMP_KP     (0.010f)            // 接近中心线时的偏航角速度阻尼
+#define LINE_FOLLOW_SERVO_KP_SMALL  (0.28f)             // 直线附近使用较小增益，减少高速摇摆
+#define LINE_FOLLOW_SERVO_KP_LARGE  (0.42f)             // 大偏差使用较大增益，保证入弯响应
+#define LINE_FOLLOW_SERVO_KP_SWITCH (6.0f)              // 大小误差增益切换点
+#define LINE_FOLLOW_YAW_DAMP_KP     (0.015f)            // 接近中心线时的偏航角速度阻尼
 #define LINE_FOLLOW_YAW_DAMP_ERROR  (5.0f)              // 图像误差小于该值时IMU才干预舵机
 #define LINE_FOLLOW_YAW_SLOW_KP      (10.0f)            // 实际偏航角速度对应的额外减速系数
+#define LINE_FOLLOW_FORWARD_ACC_SLOW_KP (800.0f)        // 纵向冲击对应的额外减速系数
+#define LINE_FOLLOW_LATERAL_ACC_SLOW_KP (3000.0f)       // 横向加速度对应的额外减速系数
 #define LINE_FOLLOW_MAX_ERROR       ((float)(SEARCH_IMAGE_W / 2))
 #define LINE_FOLLOW_ROW_FAR         (SEARCH_IMAGE_H * 2 / 3)
 #define LINE_FOLLOW_ROW_NEAR        (SEARCH_IMAGE_H - 12)
@@ -103,6 +107,23 @@ static volatile uint8 lineFollowValid = 0;
 static uint8 control_abs_less(float value, float limit) 
 {
     return ((value < limit) && (value > -limit));
+}
+
+// 直线小误差低增益，弯道大误差高增益，并在切换点保持输出连续。
+static float control_get_servo_target(float error)
+{
+    float absError = func_abs(error);
+    float target = 0.0f;
+
+    if (absError <= LINE_FOLLOW_SERVO_KP_SWITCH)
+    {
+        return error * LINE_FOLLOW_SERVO_KP_SMALL;
+    }
+
+    target = LINE_FOLLOW_SERVO_KP_SWITCH * LINE_FOLLOW_SERVO_KP_SMALL
+           + (absError - LINE_FOLLOW_SERVO_KP_SWITCH) * LINE_FOLLOW_SERVO_KP_LARGE;
+
+    return (error >= 0.0f) ? target : -target;
 }
 
 // 目标速度斜坡处理函数
@@ -302,6 +323,8 @@ void control_line_follow_update(void)
     float speedTarget = LINE_FOLLOW_STOP_SPEED;
     float yawRate = 0.0f;
     float yawDampScale = 0.0f;
+    float forwardAcceleration = 0.0f;
+    float lateralAcceleration = 0.0f;
 #endif
 
     if (!mt9v03x_finish_flag)
@@ -317,10 +340,12 @@ void control_line_follow_update(void)
 #if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
     if (lineFollowValid)
     {
-        servoTarget = error * LINE_FOLLOW_SERVO_KP;
+        servoTarget = control_get_servo_target(error);
         if (Accelerator_IsReady())
         {
             yawRate = Accelerator_GetYawRate();
+            forwardAcceleration = Accelerator_GetForwardAcceleration();
+            lateralAcceleration = Accelerator_GetLateralAcceleration();
 
             // 弯中由图像全力控制；接近中心线时再逐渐加入IMU阻尼，避免压制正常转向。
             if (func_abs(error) < LINE_FOLLOW_YAW_DAMP_ERROR)
@@ -337,6 +362,8 @@ void control_line_follow_update(void)
         if (Accelerator_IsReady())
         {
             speedTarget -= func_abs(yawRate) * LINE_FOLLOW_YAW_SLOW_KP;
+            speedTarget -= func_abs(forwardAcceleration) * LINE_FOLLOW_FORWARD_ACC_SLOW_KP;
+            speedTarget -= func_abs(lateralAcceleration) * LINE_FOLLOW_LATERAL_ACC_SLOW_KP;
         }
         speedTarget = control_limit(speedTarget, LINE_FOLLOW_MIN_SPEED, LINE_FOLLOW_DYNAMIC_SPEED);
 #else
@@ -651,36 +678,36 @@ void control_sendOscData(void)
 
     seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
 #elif (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
-    float localTargetSpeed1 = 0.0f;
+    float localTargetSpeed = 0.0f;
     float localFeedbackSpeed1 = 0.0f;
-    float localOutput1 = 0.0f;
-    float localTargetSpeed2 = 0.0f;
     float localFeedbackSpeed2 = 0.0f;
-    float localOutput2 = 0.0f;
+    float localLineError = 0.0f;
     float localServoTarget = 0.0f;
     float localYawRate = 0.0f;
+    float localForwardAcceleration = 0.0f;
+    float localLateralAcceleration = 0.0f;
     bit irq_backup = EA;
     EA = 0;
 
-    localTargetSpeed1 = targetSpeed1;
+    localTargetSpeed = targetSpeed1;
     localFeedbackSpeed1 = feedbackSpeed1;
-    localOutput1 = output1;
-    localTargetSpeed2 = targetSpeed2;
     localFeedbackSpeed2 = feedbackSpeed2;
-    localOutput2 = output2;
+    localLineError = lineFollowError;
     localServoTarget = Servo_GetTargetPosition();
     localYawRate = Accelerator_GetYawRate();
+    localForwardAcceleration = Accelerator_GetForwardAcceleration();
+    localLateralAcceleration = Accelerator_GetLateralAcceleration();
 
     EA = irq_backup;
 
-    seekfree_assistant_oscilloscope_data.dat[0] = localTargetSpeed1;
+    seekfree_assistant_oscilloscope_data.dat[0] = localTargetSpeed;
     seekfree_assistant_oscilloscope_data.dat[1] = localFeedbackSpeed1;
-    seekfree_assistant_oscilloscope_data.dat[2] = localOutput1;
-    seekfree_assistant_oscilloscope_data.dat[3] = localTargetSpeed2;
-    seekfree_assistant_oscilloscope_data.dat[4] = localFeedbackSpeed2;
-    seekfree_assistant_oscilloscope_data.dat[5] = localOutput2;
-    seekfree_assistant_oscilloscope_data.dat[6] = localServoTarget;
-    seekfree_assistant_oscilloscope_data.dat[7] = localYawRate;
+    seekfree_assistant_oscilloscope_data.dat[2] = localFeedbackSpeed2;
+    seekfree_assistant_oscilloscope_data.dat[3] = localLineError;
+    seekfree_assistant_oscilloscope_data.dat[4] = localServoTarget;
+    seekfree_assistant_oscilloscope_data.dat[5] = localYawRate;
+    seekfree_assistant_oscilloscope_data.dat[6] = localForwardAcceleration;
+    seekfree_assistant_oscilloscope_data.dat[7] = localLateralAcceleration;
     seekfree_assistant_oscilloscope_data.channel_num = 8;
 
     seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);

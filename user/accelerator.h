@@ -10,6 +10,12 @@
 // 调试时向右转动车身：若读取的偏航角速度为负值，将此符号改为 -1.0f。
 #define ACCELERATOR_YAW_SIGN             ( 1.0f )
 
+// 车身坐标轴配置：默认X轴向前、Y轴向右。安装方向不同时只需修改这里。
+#define ACCELERATOR_FORWARD_ACC_AXIS      ( 0 )
+#define ACCELERATOR_LATERAL_ACC_AXIS      ( 1 )
+#define ACCELERATOR_FORWARD_ACC_SIGN      ( 1.0f )
+#define ACCELERATOR_LATERAL_ACC_SIGN      ( 1.0f )
+
 #define ACCELERATOR_STABILIZATION_MS      ( 500U )
 #define ACCELERATOR_DISCARD_SAMPLES       ( 100U )
 #define ACCELERATOR_CALIBRATION_SAMPLES   ( 400U )
@@ -18,10 +24,14 @@
 #define ACCELERATOR_CALIBRATION_MAX_BIAS_DPS  ( 20.0f )
 #define ACCELERATOR_YAW_FILTER_ALPHA     ( 0.20f )
 #define ACCELERATOR_YAW_DEADBAND_DPS     ( 0.50f )
+#define ACCELERATOR_ACC_FILTER_ALPHA     ( 0.15f )
+#define ACCELERATOR_ACC_DEADBAND_G       ( 0.02f )
 
 uint8 Accelerator_Init(void);
 void Accelerator_Update(void);
 uint8 Accelerator_IsReady(void);
 float Accelerator_GetYawRate(void);
+float Accelerator_GetForwardAcceleration(void);
+float Accelerator_GetLateralAcceleration(void);
 
 #endif
