@@ -19,8 +19,8 @@ static volatile float servoOutputCommand = 0.0f;
 #define SERVO_KD_MAX                    ( 200.0f )
 #define SERVO_POSITION_MIN              ( -90.0f )
 #define SERVO_POSITION_MAX              ( 90.0f )
-#define SERVO_CENTER_MIN                ( (float)SERVO_DUTY_MIN )
-#define SERVO_CENTER_MAX                ( (float)SERVO_DUTY_MAX )
+#define SERVO_CENTER_MIN                ( (float)SERVO_SAFE_DUTY_MIN )
+#define SERVO_CENTER_MAX                ( (float)SERVO_SAFE_DUTY_MAX )
 
 static volatile float servoKp = 8.0f;                              
 static volatile float servoKd = 2.0f;                              
@@ -48,7 +48,7 @@ static float Servo_Limit(float value, float low, float high)
 
 static void Servo_SetPwmDuty(float duty)
 {
-    duty = Servo_Limit(duty, (float)SERVO_DUTY_MIN, (float)SERVO_DUTY_MAX);
+    duty = Servo_Limit(duty, (float)SERVO_SAFE_DUTY_MIN, (float)SERVO_SAFE_DUTY_MAX);
     servoPwmDuty = duty;
     pwm_set_duty(SERVO_PWM, (uint32)duty);
 }
@@ -132,7 +132,7 @@ void Servo_PositionPdUpdate(void)
 
     if (servoTuneMode >= 0.5f)
     {
-        outputTemp = Servo_Limit(servoDirectOutput, -SERVO_OUTPUT_LIMIT, SERVO_OUTPUT_LIMIT);
+        outputTemp = Servo_Limit(servoDirectOutput, SERVO_OUTPUT_MIN, SERVO_OUTPUT_MAX);
         dutyTemp = servoCenterDuty + SERVO_DIRECTION_SIGN * outputTemp;
         servoError = servoTargetPosition - servoFeedbackPosition;
         servoErrorLast = servoError;
@@ -146,7 +146,7 @@ void Servo_PositionPdUpdate(void)
 
     errorTemp = targetTemp - feedbackTemp;
     servoOutputCommand = kpTemp * errorTemp + kdTemp * (errorTemp - servoErrorLast);
-    servoOutputCommand = Servo_Limit(servoOutputCommand, -SERVO_OUTPUT_LIMIT, SERVO_OUTPUT_LIMIT);
+    servoOutputCommand = Servo_Limit(servoOutputCommand, SERVO_OUTPUT_MIN, SERVO_OUTPUT_MAX);
     outputTemp = Servo_RampTarget(servoOutputDuty, servoOutputCommand, SERVO_OUTPUT_RAMP_STEP);
     dutyTemp = servoCenterDuty + SERVO_DIRECTION_SIGN * outputTemp;
 
@@ -198,8 +198,8 @@ void Servo_AssistantUpdate(volatile float *lastParamChannel, volatile float *las
     if (seekfree_assistant_parameter_update_flag[SERVO_PARAM_DIRECT_CHANNEL - 1])
     {
         servoDirectCommand = Servo_Limit(seekfree_assistant_parameter[SERVO_PARAM_DIRECT_CHANNEL - 1],
-                                         -SERVO_OUTPUT_LIMIT,
-                                         SERVO_OUTPUT_LIMIT);
+                                         SERVO_OUTPUT_MIN,
+                                         SERVO_OUTPUT_MAX);
         servoTuneMode = 1.0f;
         *lastParamChannel = (float)SERVO_PARAM_DIRECT_CHANNEL;
         *lastParamValue = servoDirectCommand;

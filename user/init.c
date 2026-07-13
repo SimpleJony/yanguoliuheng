@@ -2,6 +2,7 @@
 #include "servo.h"
 #include "search_line.h"
 #include "image_transfer.h"
+#include "accelerator.h"
 
 void initAllModules(){
     clock_init(SYSTEM_CLOCK_96M);
@@ -9,6 +10,10 @@ void initAllModules(){
     Motor_Init();
     Servo_Init();
     Encoder_Init();
+    if (Accelerator_Init())
+    {
+        printf("\r\n imu660rb init/calibration failed, yaw feedback disabled. \r\n");
+    }
     Camera_Init();
     SeekfreeAssistant_Init();
 #if (SEEKFREE_ASSISTANT_TUNE_TARGET == ASSISTANT_TUNE_NONE)
