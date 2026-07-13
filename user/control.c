@@ -49,11 +49,10 @@
 #define LINE_FOLLOW_MIN_SPEED       (6000.0f)
 #define LINE_FOLLOW_STOP_SPEED      (0.0f)
 #define LINE_FOLLOW_TURN_SLOW_KP    (280.0f)
-#define LINE_FOLLOW_SERVO_KP        (0.30f)
-#define LINE_FOLLOW_YAW_RATE_PER_PIXEL (3.0f)          // 每像素偏差对应的期望偏航角速度(度/秒)
-#define LINE_FOLLOW_YAW_FEEDBACK_KP  (0.015f)           // 偏航角速度误差到舵机目标的反馈系数
+#define LINE_FOLLOW_SERVO_KP        (0.35f)
+#define LINE_FOLLOW_YAW_DAMP_KP     (0.010f)            // 接近中心线时的偏航角速度阻尼
+#define LINE_FOLLOW_YAW_DAMP_ERROR  (5.0f)              // 图像误差小于该值时IMU才干预舵机
 #define LINE_FOLLOW_YAW_SLOW_KP      (10.0f)            // 实际偏航角速度对应的额外减速系数
-#define LINE_FOLLOW_YAW_RATE_LIMIT   (400.0f)           // 期望偏航角速度限幅
 #define LINE_FOLLOW_MAX_ERROR       ((float)(SEARCH_IMAGE_W / 2))
 #define LINE_FOLLOW_ROW_FAR         (SEARCH_IMAGE_H * 2 / 3)
 #define LINE_FOLLOW_ROW_NEAR        (SEARCH_IMAGE_H - 12)
@@ -302,7 +301,7 @@ void control_line_follow_update(void)
     float servoTarget = 0.0f;
     float speedTarget = LINE_FOLLOW_STOP_SPEED;
     float yawRate = 0.0f;
-    float desiredYawRate = 0.0f;
+    float yawDampScale = 0.0f;
 #endif
 
     if (!mt9v03x_finish_flag)
@@ -322,10 +321,14 @@ void control_line_follow_update(void)
         if (Accelerator_IsReady())
         {
             yawRate = Accelerator_GetYawRate();
-            desiredYawRate = control_limit(error * LINE_FOLLOW_YAW_RATE_PER_PIXEL,
-                                           -LINE_FOLLOW_YAW_RATE_LIMIT,
-                                           LINE_FOLLOW_YAW_RATE_LIMIT);
-            servoTarget += (desiredYawRate - yawRate) * LINE_FOLLOW_YAW_FEEDBACK_KP;
+
+            // 弯中由图像全力控制；接近中心线时再逐渐加入IMU阻尼，避免压制正常转向。
+            if (func_abs(error) < LINE_FOLLOW_YAW_DAMP_ERROR)
+            {
+                yawDampScale = (LINE_FOLLOW_YAW_DAMP_ERROR - func_abs(error))
+                             / LINE_FOLLOW_YAW_DAMP_ERROR;
+                servoTarget -= yawRate * LINE_FOLLOW_YAW_DAMP_KP * yawDampScale;
+            }
         }
 #if (LINE_FOLLOW_SPEED_MODE == LINE_FOLLOW_SPEED_FIXED)
         speedTarget = LINE_FOLLOW_FIXED_SPEED;
