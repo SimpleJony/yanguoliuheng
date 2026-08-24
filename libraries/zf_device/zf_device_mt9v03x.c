@@ -36,6 +36,7 @@
 
 #include "zf_common_fifo.h"
 #include "zf_common_interrupt.h"
+#include "zf_common_function.h"
 
 #include "zf_driver_gpio.h"
 #include "zf_driver_soft_iic.h"
@@ -172,5 +173,135 @@ uint8 mt9v03x_init (void)
     }while(0);
     
     return return_state;
+}
+
+uint8 mt9v03x_auto_exposure_adjust(uint8 image[MT9V03X_H][MT9V03X_W], uint8 target_mean)
+{
+    const uint8 row_step = 5;                                           // 每隔多少行统计一次
+    const uint8 sample_num = 8;                                         // 中间采样行数
+    const uint16 sample_row0 = (uint16)((((MT9V03X_H / row_step) - sample_num) / 2) * row_step); // 中间采样起始行
+    const uint16 exp_min = 3;                                           // 曝光下限
+    const uint16 exp_max = 600;                                         // 曝光上限
+    const uint8 frame_interval = 3;                                     // 每隔几帧修正一次(最低3帧 否则无法正常调节)
+    const uint8 step_base_min = 1;                                      // 修正基准下限
+    const uint8 step_base_max = 64;                                     // 修正基准上限
+    const uint8 step_base = (uint8)func_limit_ab(64, step_base_min, step_base_max); // 限幅后的修正基准
+
+    static uint8 frame_skip = 0;                                        // 帧间隔计数
+    static uint16 mean_filt = 0;                                        // 均值低通滤波值
+    static uint8 mean_inited = 0;                                       // 滤波初值是否已建立
+    uint16 row;                                                         // 当前统计行号
+    uint16 col;                                                         // 当前列号
+    uint16 index;                                                       // 采样行计数
+    uint16 step_limit;                                                  // 单次最大步进
+    uint16 new_exp;                                                     // 新曝光值
+    uint16 deadzone;                                                    // 自适应误差死区
+    uint16 camera_exp_data;                                             // 当前曝光值
+    uint32 sum_all;                                                     // 采样区像素累加和
+    uint8 cur_mean;                                                     // 当前像素均值
+    uint8 mean_use;                                                     // 用于调光的滤波均值
+    int16 error;                                                        // 均值误差
+    int32 adj;                                                          // 曝光调节量
+    int32 exp_temp;                                                     // 临时曝光值
+
+    camera_exp_data = MT9V03X_EXP_TIME_DEF;
+    index = 0;
+    sum_all = 0;
+    for(row = sample_row0; index < sample_num; row += row_step)
+    {
+        for(col = 0; col < MT9V03X_W; col ++)
+        {
+            sum_all += image[row][col];                                 // 累加采样区像素
+        }
+        index ++;
+    }
+    cur_mean = (uint8)(sum_all / (sample_num * MT9V03X_W));             // 整体像素均值
+
+    if(0 == mean_inited)                                                // 首帧直接建立滤波初值
+    {
+        mean_filt = cur_mean;
+        mean_inited = 1;
+    }
+    else
+    {
+        mean_filt = (uint16)((mean_filt * 3 + cur_mean) / 4);           // IIR 低通，削弱帧间抖动
+    }
+    mean_use = (uint8)mean_filt;
+
+    frame_skip ++;
+    if(frame_skip >= frame_interval)                                    // 满间隔帧才修正曝光
+    {
+        frame_skip = 0;
+        error = (int16)target_mean - (int16)mean_use;
+
+        // 曝光越低，灰度对曝光越敏感，死区越大
+        if(camera_exp_data < 30)
+        {
+            deadzone = 8;
+        }
+        else if(camera_exp_data < 80)
+        {
+            deadzone = 4;
+        }
+        else
+        {
+            deadzone = 2;
+        }
+
+        if(func_abs(error) > deadzone)                                      // 超出死区才调节
+        {
+            step_limit = (uint16)((uint32)camera_exp_data * step_base / 100);       // 当前曝光的 N%
+            step_limit = (uint16)func_limit_ab((int32)step_limit, 1, step_base);    // 限制在 1~N
+
+            if(camera_exp_data < 30)
+            {
+                step_limit = (uint16)func_limit_ab((int32)step_limit, 1, 2);
+            }
+            else if(camera_exp_data < 80)
+            {
+                step_limit = (uint16)func_limit_ab((int32)step_limit, 1, 4);
+            }
+
+            adj = (int32)func_limit((int32)error, (int32)step_limit);       // 上限限幅
+
+            if((adj < 0) && (camera_exp_data < 30))
+            {
+                adj = (int32)func_limit_ab(adj, -1, 0);
+            }
+
+            if(adj < 0)                                                     // 下调曝光
+            {
+                if(camera_exp_data <= exp_min)
+                {
+                    adj = 0;
+                }
+                else
+                {
+                    adj = (int32)func_limit_ab(adj, -((int32)camera_exp_data - exp_min), 0);
+                }
+            }
+            else                                                            // 上调曝光
+            {
+                if(camera_exp_data >= exp_max)
+                {
+                    adj = 0;
+                }
+                else
+                {
+                    adj = (int32)func_limit_ab(adj, 0, (int32)exp_max - camera_exp_data);
+                }
+            }
+
+            exp_temp = (int32)camera_exp_data + adj;
+            new_exp = (uint16)func_limit_ab(exp_temp, exp_min, exp_max);    // 曝光限幅
+
+            if(new_exp != camera_exp_data)
+            {
+                camera_exp_data = new_exp;
+                mt9v03x_set_exposure_time(camera_exp_data);                 // 写入摄像头曝光
+            }
+        }
+    }
+    return cur_mean;
 }
 
