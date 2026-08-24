@@ -51,7 +51,7 @@ static void pitHandler(){
     encoderL = encoder_get_count(PWMC_ENCODER) << 1;
     encoder_clear_count(PWMA_ENCODER);
     encoder_clear_count(PWMC_ENCODER);
-    pwm_set_duty(PWME_CH3P_PA4, servoMid + steerPIDCalculate(&servoPid, duty));
+    pwm_set_duty(servoPwm, servoMid + steerPIDCalculate(&servoPid, duty));
     currentSpeed = encoderR + encoderL >> 1;
     setSpeed_L = setSpeed - (!R || !enableDifSpeed ? 0 : setSpeed * 8 / R);
     setSpeed_R = setSpeed + (!R || !enableDifSpeed ? 0 : setSpeed * 8 / R);
