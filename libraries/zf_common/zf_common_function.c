@@ -1054,4 +1054,39 @@ uint32 zf_sprintf (int8 *buff, const int8 *format, ...)
     return buff_len;
 }
 
+int32 sqrt_int(int32 x) {
+    int32 res = 0, Bi = 1L << 20;
+    if (x <= 0) return 0;
+    while (Bi > x) Bi >>= 2;
+    while (Bi) {
+        if (x >= res + Bi) {
+            x -= res + Bi;
+            res = (res >> 1) + Bi;
+        } else {
+            res >>= 1;
+        }
+        Bi >>= 2;
+    }
+    return res;
+}
 
+int32 atan2_int(int32 y, int32 x) {
+    static const int32 tan_table[31] = {
+        0,         1143,      2288,      3434,      4582,      5732,
+        6887,      8046,      9212,      10383,     11562,     12749,
+        13945,     15151,     16368,     17597,     18840,     20097,
+        21369,     22657,     23962,     25286,     26628,     27989,
+        29371,     30775,     32203,     33654,     35132,     36637,
+        37837
+    };
+    int32 sign = (y >= 0) ? 1 : -1, ay = (y >= 0) ? y : -y, d = 29, lhs, rhs;
+    if (ay == 0) return 0;
+    lhs = (int)ay * 65536;
+    rhs = (int)x * tan_table[30];
+    if (lhs >= rhs) return sign * 30;
+    while (d >= 0) {
+        if (lhs >= (int)x * tan_table[d]) break;
+        d--;
+    }
+    return sign * d;
+}

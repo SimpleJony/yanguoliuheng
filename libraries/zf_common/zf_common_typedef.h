@@ -99,4 +99,9 @@ extern uint32 system_clock;
 #define ZF_TRUE             (1)
 #define ZF_FALSE            (0)
 
+typedef struct {
+    uint8 x;
+    uint8 y;
+} Point;
+
 #endif

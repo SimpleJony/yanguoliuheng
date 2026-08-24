@@ -12,11 +12,6 @@
 #define motorR     1
 
 typedef struct {
-    uint8 x;
-    uint8 y;
-} Point;
-
-typedef struct {
     int16 Kp, Ki, Kd;
     uint8 which;
     int16 attitude_coeff; // 抑制转向的系数

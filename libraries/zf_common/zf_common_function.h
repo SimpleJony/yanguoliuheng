@@ -73,6 +73,8 @@
 //-------------------------------------------------------------------------------------------------------------------
 #define     func_limit_ab(x, a, b)  ((x) < (a) ? (a) : ((x) > (b) ? (b) : (x)))
 
+#define func_min(a, b) ((a) < (b) ? (a) : (b))
+#define func_max(a, b) ((a) > (b) ? (a) : (b))
 
 
 
@@ -97,6 +99,8 @@ void        func_hex_to_str                     (char *str, uint32 number);
 
 uint32      zf_sprintf                          (int8 *buff, const int8 *format, ...);
 int32 		vsnprintf							(char *buffer, uint32 siz, const char *format, va_list args);
+int32       sqrt_int                            (int32 x);
+int32       atan2_int                           (int32 y, int32 x);
 //=====================================================常规函数区=====================================================
 
 #endif

@@ -91,7 +91,7 @@ void Motor_Init(int16 _servoP, int16 _aimPos, int16 _curveCoeff, int16 _speedLim
     PID_Init(&servoPid, 39, servoP, 0, 0, 0, 0);
     PID_Init(&motorLPid, motorL, 0, 0, 0, 0, 0);
     PID_Init(&motorRPid, motorR, 0, 0, 0, 0, 0);
-    pwm_init(PWME_CH3P_PA4, 200, servoMid);
+    pwm_init(servoPwm, 200, servoMid);
     gpio_init(motorDir_L, GPO, 1, GPO_PUSH_PULL);
     gpio_init(motorDir_R, GPO, 1, GPO_PUSH_PULL);
     pwm_init(motorPwm_L, 17000, 0);
