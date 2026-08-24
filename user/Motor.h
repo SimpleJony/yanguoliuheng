@@ -2,12 +2,17 @@
 #define __MOTOR_H__
 #include "zf_common_headfile.h"
 
+#define func_min(a, b) ((a) < (b) ? (a) : (b))
+#define func_max(a, b) ((a) > (b) ? (a) : (b))
+int32 sqrt_int(int32 x);
+int32 atan2_int(int32 y, int32 x);
+
 #define motorPwm_L PWMD_CH4_P53
 #define motorDir_L IO_P52
 #define motorPwm_R PWMD_CH2_P51
 #define motorDir_R IO_P50
 #define servoPwm   PWME_CH1P_PA0
-#define servoMid   1145
+#define servoMid   2950
 #define motorL     0
 #define motorR     1
 
@@ -26,8 +31,9 @@ typedef struct {
     int16 max_out;
 } PID;
 
-volatile extern int16 setSpeed, handle, encoderL, encoderR;
+volatile extern int16 setSpeed, handle, encoderL, encoderR, duty, servoOut, motorOutL, motorOutR;
 extern int16 enableDifSpeed, currentSpeed;
+extern PID servoPid, motorLPid, motorRPid;
 void PID_Init(PID *pid, uint8 which, int16 Kp, int16 Ki, int16 Kd, int16 attitude_coeff,int16 max_out);
 int16 steerPIDCalculate(PID *pid, int16 error);
 int16 motorPIDCalculate(PID *pid, int16 target, int16 actual);

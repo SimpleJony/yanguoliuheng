@@ -844,6 +844,26 @@
               <FileType>1</FileType>
               <FilePath>.\user\main.c</FilePath>
             </File>
+            <File>
+              <FileName>Motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\Motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>Motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\Motor.h</FilePath>
+            </File>
+            <File>
+              <FileName>assistant_debug.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\assistant_debug.c</FilePath>
+            </File>
+            <File>
+              <FileName>assistant_debug.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\assistant_debug.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

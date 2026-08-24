@@ -1,10 +1,47 @@
 #include "Motor.h"
 
-volatile int16 encoderL, encoderR, duty, setSpeed, handle = 0;
+volatile int16 encoderL, encoderR, duty, setSpeed, handle = 0, servoOut, motorOutL, motorOutR;
 int16 R, servoP, aimPos, speedLimit, curveCoeff, currentSpeed, setSpeed_L, setSpeed_R, enableDifSpeed = 1, currentDuty = 0;
 static uint8 wheelDis = 18; // 真实轴距*图像比例
 static uint8 cameraOffset = 18;
 const int16 tani[33];
+
+int32 sqrt_int(int32 x) {
+    int32 res = 0, Bi = 1L << 20;
+    if (x <= 0) return 0;
+    while (Bi > x) Bi >>= 2;
+    while (Bi) {
+        if (x >= res + Bi) {
+            x -= res + Bi;
+            res = (res >> 1) + Bi;
+        } else {
+            res >>= 1;
+        }
+        Bi >>= 2;
+    }
+    return res;
+}
+
+int32 atan2_int(int32 y, int32 x) {
+    static const int32 tan_table[31] = {
+        0,         1143,      2288,      3434,      4582,      5732,
+        6887,      8046,      9212,      10383,     11562,     12749,
+        13945,     15151,     16368,     17597,     18840,     20097,
+        21369,     22657,     23962,     25286,     26628,     27989,
+        29371,     30775,     32203,     33654,     35132,     36637,
+        37837
+    };
+    int32 sign = (y >= 0) ? 1 : -1, ay = (y >= 0) ? y : -y, d = 29, lhs, rhs;
+    if (ay == 0) return 0;
+    lhs = (int)ay * 65536;
+    rhs = (int)x * tan_table[30];
+    if (lhs >= rhs) return sign * 30;
+    while (d >= 0) {
+        if (lhs >= (int)x * tan_table[d]) break;
+        d--;
+    }
+    return sign * d;
+}
 
 PID motorLPid, motorRPid, servoPid;
 
@@ -51,12 +88,17 @@ static void pitHandler(){
     encoderL = encoder_get_count(PWMC_ENCODER) << 1;
     encoder_clear_count(PWMA_ENCODER);
     encoder_clear_count(PWMC_ENCODER);
-    pwm_set_duty(PWME_CH3P_PA4, servoMid + steerPIDCalculate(&servoPid, duty));
+    servoOut = steerPIDCalculate(&servoPid, duty);
+    pwm_set_duty(servoPwm, servoMid + servoOut);
     currentSpeed = encoderR + encoderL >> 1;
     setSpeed_L = setSpeed - (!R || !enableDifSpeed ? 0 : setSpeed * 8 / R);
     setSpeed_R = setSpeed + (!R || !enableDifSpeed ? 0 : setSpeed * 8 / R);
-    pwm_set_duty(motorPwm_L, motorPIDCalculate(&motorLPid, setSpeed_L, encoderL));
-    pwm_set_duty(motorPwm_R, motorPIDCalculate(&motorRPid, setSpeed_R, encoderR));
+    motorPIDCalculate(&motorLPid, setSpeed_L, encoderL);
+    motorOutL = motorLPid.base;
+    pwm_set_duty(motorPwm_L, func_abs(motorOutL));
+    motorPIDCalculate(&motorRPid, setSpeed_R, encoderR);
+    motorOutR = motorRPid.base;
+    pwm_set_duty(motorPwm_R, func_abs(motorOutR));
 }
 
 void alongLine(Point roadLine[], int16 count, int16 aimPos) {
@@ -91,7 +133,7 @@ void Motor_Init(int16 _servoP, int16 _aimPos, int16 _curveCoeff, int16 _speedLim
     PID_Init(&servoPid, 39, servoP, 0, 0, 0, 0);
     PID_Init(&motorLPid, motorL, 0, 0, 0, 0, 0);
     PID_Init(&motorRPid, motorR, 0, 0, 0, 0, 0);
-    pwm_init(PWME_CH3P_PA4, 200, servoMid);
+    pwm_init(servoPwm, 200, servoMid);
     gpio_init(motorDir_L, GPO, 1, GPO_PUSH_PULL);
     gpio_init(motorDir_R, GPO, 1, GPO_PUSH_PULL);
     pwm_init(motorPwm_L, 17000, 0);
