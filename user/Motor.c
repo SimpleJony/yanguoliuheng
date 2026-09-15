@@ -7,6 +7,9 @@ static uint8 cameraOffset = 18;
 const int16 tani[33];
 
 PID motorLPid, motorRPid, servoPid;
+static int16 motorSpeedKp = 0;
+static int16 motorSpeedKi = 0;
+static int16 motorSpeedKd = 0;
 
 void PID_Init(PID *pid, uint8 which, int16 Kp, int16 Ki, int16 Kd, int16 attitude_coeff,int16 max_out){
     pid->Kp = Kp;
@@ -18,6 +21,20 @@ void PID_Init(PID *pid, uint8 which, int16 Kp, int16 Ki, int16 Kd, int16 attitud
     pid->last_error = 0;
     pid->llast_error = 0;
     pid->base = 0;
+}
+
+void Motor_SetSpeedPID(int16 kp, int16 ki, int16 kd) {
+    motorSpeedKp = kp;
+    motorSpeedKi = ki;
+    motorSpeedKd = kd;
+
+    // Keep both wheel speed loops on the same tuning values.
+    motorLPid.Kp = kp;
+    motorLPid.Ki = ki;
+    motorLPid.Kd = kd;
+    motorRPid.Kp = kp;
+    motorRPid.Ki = ki;
+    motorRPid.Kd = kd;
 }
 
 int16 steerPIDCalculate(PID *pid, int16 error) {
@@ -89,8 +106,8 @@ void Motor_Init(int16 _servoP, int16 _aimPos, int16 _curveCoeff, int16 _speedLim
     speedLimit = _speedLimit;
 
     PID_Init(&servoPid, 39, servoP, 0, 0, 0, 0);
-    PID_Init(&motorLPid, motorL, 0, 0, 0, 0, 0);
-    PID_Init(&motorRPid, motorR, 0, 0, 0, 0, 0);
+    PID_Init(&motorLPid, motorL, motorSpeedKp, motorSpeedKi, motorSpeedKd, 0, 0);
+    PID_Init(&motorRPid, motorR, motorSpeedKp, motorSpeedKi, motorSpeedKd, 0, 0);
     pwm_init(servoPwm, 200, servoMid);
     gpio_init(motorDir_L, GPO, 1, GPO_PUSH_PULL);
     gpio_init(motorDir_R, GPO, 1, GPO_PUSH_PULL);

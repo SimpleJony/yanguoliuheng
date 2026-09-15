@@ -29,6 +29,7 @@ int16 motorPIDCalculate(PID *pid, int16 target, int16 actual);
 void alongLine(Point roadLine[], int16 count, int16 aimPos);
 void setServoDuty(int8 d);
 void Motor_Init(int16 _servoP, int16 _aimPos, int16 _curveCoeff, int16 _speedLimit);
+void Motor_SetSpeedPID(int16 kp, int16 ki, int16 kd);
 int8 getAimPos();
 
 #endif //__MOTOR_H__

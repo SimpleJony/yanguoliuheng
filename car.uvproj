@@ -864,6 +864,16 @@
               <FileType>5</FileType>
               <FilePath>.\user\Motor.h</FilePath>
             </File>
+            <File>
+              <FileName>System.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\System.c</FilePath>
+            </File>
+            <File>
+              <FileName>System.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\System.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
