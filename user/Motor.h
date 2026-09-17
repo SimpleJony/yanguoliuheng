@@ -2,12 +2,12 @@
 #define __MOTOR_H__
 #include "zf_common_headfile.h"
 
-#define motorPwm_L PWMD_CH4_P53
-#define motorDir_L IO_P52
-#define motorPwm_R PWMD_CH2_P51
-#define motorDir_R IO_P50
+#define motorPwm_L PWMB_CH1_P74
+#define motorDir_L IO_P75
+#define motorPwm_R PWMB_CH3_P76
+#define motorDir_R IO_P77
 #define servoPwm   PWME_CH1P_PA0
-#define servoMid   1145
+#define servoMid   3260
 #define motorL     0
 #define motorR     1
 
@@ -30,6 +30,8 @@ void alongLine(Point roadLine[], int16 count, int16 aimPos);
 void setServoDuty(int8 d);
 void Motor_Init(int16 _servoP, int16 _aimPos, int16 _curveCoeff, int16 _speedLimit);
 void Motor_SetSpeedPID(int16 kp, int16 ki, int16 kd);
+void Motor_SetSpeedLimit(int16 speed);
+void Motor_SetEnabled(uint8 enabled);
 int8 getAimPos();
 
 #endif //__MOTOR_H__

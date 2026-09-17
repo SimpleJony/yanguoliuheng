@@ -9,6 +9,8 @@ typedef struct
     int16 kp;
     int16 ki;
     int16 kd;
+    int16 motor_speed;   // Speed limit in encoder counts per 5 ms, 0..1000
+    uint8 motor_enabled; // Runtime only: 0 off, 1 on
 } system_pid_config_t;
 
 extern system_pid_config_t system_pid_config;

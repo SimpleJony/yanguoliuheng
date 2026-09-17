@@ -7,9 +7,12 @@ static uint8 cameraOffset = 18;
 const int16 tani[33];
 
 PID motorLPid, motorRPid, servoPid;
-static int16 motorSpeedKp = 0;
-static int16 motorSpeedKi = 0;
-static int16 motorSpeedKd = 0;
+static int16 motorSpeedKp = 3000;
+static int16 motorSpeedKi = 50;
+static int16 motorSpeedKd = 50;
+static uint8 motorSpeedConfigured = 0;
+static volatile uint8 motorEnabled = 0;
+static uint8 motorInitialized = 0;
 
 void PID_Init(PID *pid, uint8 which, int16 Kp, int16 Ki, int16 Kd, int16 attitude_coeff,int16 max_out){
     pid->Kp = Kp;
@@ -24,6 +27,9 @@ void PID_Init(PID *pid, uint8 which, int16 Kp, int16 Ki, int16 Kd, int16 attitud
 }
 
 void Motor_SetSpeedPID(int16 kp, int16 ki, int16 kd) {
+    bit irq_state;
+    irq_state = EA;
+    EA = 0;
     motorSpeedKp = kp;
     motorSpeedKi = ki;
     motorSpeedKd = kd;
@@ -35,6 +41,41 @@ void Motor_SetSpeedPID(int16 kp, int16 ki, int16 kd) {
     motorRPid.Kp = kp;
     motorRPid.Ki = ki;
     motorRPid.Kd = kd;
+    EA = irq_state;
+}
+
+void Motor_SetSpeedLimit(int16 speed) {
+    bit irq_state;
+    irq_state = EA;
+    EA = 0;
+    speedLimit = speed;
+    setSpeed = speed;
+    motorSpeedConfigured = 1;
+    EA = irq_state;
+}
+
+void Motor_SetEnabled(uint8 enabled) {
+    bit irq_state;
+    irq_state = EA;
+    EA = 0;
+    if (enabled == 1) {
+        setSpeed = speedLimit;
+        motorEnabled = 1;
+    } else {
+        motorEnabled = 0;
+        setSpeed = 0;
+        motorLPid.base = 0;
+        motorLPid.last_error = 0;
+        motorLPid.llast_error = 0;
+        motorRPid.base = 0;
+        motorRPid.last_error = 0;
+        motorRPid.llast_error = 0;
+        if (motorInitialized) {
+            pwm_set_duty(motorPwm_L, 0);
+            pwm_set_duty(motorPwm_R, 0);
+        }
+    }
+    EA = irq_state;
 }
 
 int16 steerPIDCalculate(PID *pid, int16 error) {
@@ -64,12 +105,25 @@ int16 motorPIDCalculate(PID *pid, int16 target, int16 actual) {
 }
 
 static void pitHandler(){
-    encoderR = encoder_get_count(PWMA_ENCODER) << 1;
+    encoderR = -encoder_get_count(PWMA_ENCODER) << 1;
     encoderL = encoder_get_count(PWMC_ENCODER) << 1;
     encoder_clear_count(PWMA_ENCODER);
     encoder_clear_count(PWMC_ENCODER);
     pwm_set_duty(servoPwm, servoMid + steerPIDCalculate(&servoPid, duty));
     currentSpeed = encoderR + encoderL >> 1;
+    if (!motorEnabled) {
+        setSpeed_L = 0;
+        setSpeed_R = 0;
+        motorLPid.base = 0;
+        motorLPid.last_error = 0;
+        motorLPid.llast_error = 0;
+        motorRPid.base = 0;
+        motorRPid.last_error = 0;
+        motorRPid.llast_error = 0;
+        pwm_set_duty(motorPwm_L, 0);
+        pwm_set_duty(motorPwm_R, 0);
+        return;
+    }
     setSpeed_L = setSpeed - (!R || !enableDifSpeed ? 0 : setSpeed * 8 / R);
     setSpeed_R = setSpeed + (!R || !enableDifSpeed ? 0 : setSpeed * 8 / R);
     pwm_set_duty(motorPwm_L, motorPIDCalculate(&motorLPid, setSpeed_L, encoderL));
@@ -103,16 +157,17 @@ void Motor_Init(int16 _servoP, int16 _aimPos, int16 _curveCoeff, int16 _speedLim
     servoP = _servoP;
     aimPos = _aimPos;
     curveCoeff = _curveCoeff;
-    speedLimit = _speedLimit;
+    if (!motorSpeedConfigured) speedLimit = _speedLimit;
 
     PID_Init(&servoPid, 39, servoP, 0, 0, 0, 0);
-    PID_Init(&motorLPid, motorL, motorSpeedKp, motorSpeedKi, motorSpeedKd, 0, 0);
-    PID_Init(&motorRPid, motorR, motorSpeedKp, motorSpeedKi, motorSpeedKd, 0, 0);
+    PID_Init(&motorLPid, motorL, motorSpeedKp, motorSpeedKi, motorSpeedKd, 0, 4000);
+    PID_Init(&motorRPid, motorR, motorSpeedKp, motorSpeedKi, motorSpeedKd, 0, 4000);
     pwm_init(servoPwm, 200, servoMid);
     gpio_init(motorDir_L, GPO, 1, GPO_PUSH_PULL);
     gpio_init(motorDir_R, GPO, 1, GPO_PUSH_PULL);
     pwm_init(motorPwm_L, 17000, 0);
     pwm_init(motorPwm_R, 17000, 0);
+    motorInitialized = 1;
     encoder_quad_init(PWMA_ENCODER, PWMA_ENCODER_CH1P_P60, PWMA_ENCODER_CH2P_P62);
     encoder_quad_init(PWMC_ENCODER, PWMC_ENCODER_CH1P_P40, PWMC_ENCODER_CH2P_P42);
     system_delay_ms(200);

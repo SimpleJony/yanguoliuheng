@@ -11,18 +11,20 @@
 #define SYSTEM_TASK_PERIOD_MS        (10U)
 
 #define SYSTEM_MAIN_ITEM_COUNT       (3U)
-#define SYSTEM_PID_ITEM_COUNT        (3U)
+#define SYSTEM_PID_ITEM_COUNT        (5U)
 #define SYSTEM_PID_STEP              (5)
 #define SYSTEM_PID_MIN               (-30000L)
 #define SYSTEM_PID_MAX               (30000L)
+#define SYSTEM_MOTOR_SPEED_MAX       (1000)
 #define SYSTEM_IMAGE_THRESHOLD       (128U)
 
 // EEPROM page 0 (512 bytes) is reserved for the menu settings.
 #define SYSTEM_PID_EEPROM_ADDRESS    (0x0000UL)
-#define SYSTEM_PID_STORAGE_SIZE      (10U)
+#define SYSTEM_PID_STORAGE_SIZE      (12U)
+#define SYSTEM_PID_OLD_STORAGE_SIZE  (13U)
 #define SYSTEM_PID_MAGIC_0           (0x53U)
 #define SYSTEM_PID_MAGIC_1           (0x50U)
-#define SYSTEM_PID_STORAGE_VERSION   (1U)
+#define SYSTEM_PID_STORAGE_VERSION   (3U)
 
 typedef enum
 {
@@ -40,7 +42,7 @@ typedef struct
     uint8 debounce_ticks;
 } system_key_t;
 
-system_pid_config_t system_pid_config = {0, 0, 0};
+system_pid_config_t system_pid_config = {3000, 50, 50, 0, 0};
 uint8 system_run_requested = 0;
 
 static system_page_t system_page = SYSTEM_PAGE_MAIN;
@@ -98,19 +100,33 @@ static int16 system_pid_decode_int16(const uint8 *source)
 
 static void system_pid_load(void)
 {
-    uint8 storage[SYSTEM_PID_STORAGE_SIZE];
+    uint8 storage[SYSTEM_PID_OLD_STORAGE_SIZE];
     int16 kp;
     int16 ki;
     int16 kd;
+    int16 motor_speed;
 
     iap_init();
-    iap_read_buff(SYSTEM_PID_EEPROM_ADDRESS, storage, SYSTEM_PID_STORAGE_SIZE);
+    iap_read_buff(SYSTEM_PID_EEPROM_ADDRESS, storage, SYSTEM_PID_OLD_STORAGE_SIZE);
     iap_idle();
 
     if((SYSTEM_PID_MAGIC_0 != storage[0]) ||
        (SYSTEM_PID_MAGIC_1 != storage[1]) ||
-       (SYSTEM_PID_STORAGE_VERSION != storage[2]) ||
-       (system_pid_crc(storage, SYSTEM_PID_STORAGE_SIZE - 1) != storage[9]))
+       ((1U != storage[2]) && (2U != storage[2]) &&
+        (SYSTEM_PID_STORAGE_VERSION != storage[2])))
+    {
+        return;
+    }
+
+    if(1U == storage[2])
+    {
+        if(system_pid_crc(storage, 9) != storage[9]) return;
+    }
+    else if(2U == storage[2])
+    {
+        if(system_pid_crc(storage, SYSTEM_PID_OLD_STORAGE_SIZE - 1) != storage[12]) return;
+    }
+    else if(system_pid_crc(storage, SYSTEM_PID_STORAGE_SIZE - 1) != storage[11])
     {
         return;
     }
@@ -125,6 +141,15 @@ static void system_pid_load(void)
         return;
     }
 
+    if(1U != storage[2])
+    {
+        motor_speed = system_pid_decode_int16(&storage[9]);
+        if((motor_speed < 0) || (motor_speed > SYSTEM_MOTOR_SPEED_MAX))
+        {
+            return;
+        }
+        system_pid_config.motor_speed = motor_speed;
+    }
     system_pid_config.kp = kp;
     system_pid_config.ki = ki;
     system_pid_config.kd = kd;
@@ -140,7 +165,8 @@ static void system_pid_save(void)
     system_pid_encode_int16(&storage[3], system_pid_config.kp);
     system_pid_encode_int16(&storage[5], system_pid_config.ki);
     system_pid_encode_int16(&storage[7], system_pid_config.kd);
-    storage[9] = system_pid_crc(storage, SYSTEM_PID_STORAGE_SIZE - 1);
+    system_pid_encode_int16(&storage[9], system_pid_config.motor_speed);
+    storage[11] = system_pid_crc(storage, SYSTEM_PID_STORAGE_SIZE - 1);
 
     iap_init();
     iap_erase_page(SYSTEM_PID_EEPROM_ADDRESS);
@@ -210,17 +236,21 @@ static void system_draw_pid(void)
     ips200_show_string(24, 8, system_pid_dirty ? "SET PID *" : "SET PID");
 
     ips200_set_color(RGB565_BLACK, RGB565_WHITE);
-    ips200_show_string(8, 48, (0 == system_pid_item) ? "> Kp:" : "  Kp:");
-    ips200_show_int16(64, 48, system_pid_config.kp);
-    ips200_show_string(8, 80, (1 == system_pid_item) ? "> Ki:" : "  Ki:");
-    ips200_show_int16(64, 80, system_pid_config.ki);
-    ips200_show_string(8, 112, (2 == system_pid_item) ? "> Kd:" : "  Kd:");
-    ips200_show_int16(64, 112, system_pid_config.kd);
+    ips200_show_string(8, 40, (0 == system_pid_item) ? "> Kp:" : "  Kp:");
+    ips200_show_int16(104, 40, system_pid_config.kp);
+    ips200_show_string(8, 68, (1 == system_pid_item) ? "> Ki:" : "  Ki:");
+    ips200_show_int16(104, 68, system_pid_config.ki);
+    ips200_show_string(8, 96, (2 == system_pid_item) ? "> Kd:" : "  Kd:");
+    ips200_show_int16(104, 96, system_pid_config.kd);
+    ips200_show_string(8, 124, (3 == system_pid_item) ? "> Speed:" : "  Speed:");
+    ips200_show_int16(104, 124, system_pid_config.motor_speed);
+    ips200_show_string(8, 152, (4 == system_pid_item) ? "> Enable:" : "  Enable:");
+    ips200_show_uint8(104, 152, system_pid_config.motor_enabled);
 
     ips200_set_color(RGB565_GREEN, RGB565_WHITE);
-    ips200_show_string(4, 168, "UP/DOWN: +/-5");
-    ips200_show_string(4, 192, "SELECT: NEXT");
-    ips200_show_string(4, 216, "BACK: SAVE");
+    ips200_show_string(4, 184, "UP/DOWN: +/-5, 0/1");
+    ips200_show_string(4, 204, "SELECT: NEXT");
+    ips200_show_string(4, 224, "BACK: SAVE / STOP");
 }
 
 static void system_draw_image_page(void)
@@ -285,7 +315,11 @@ static int16 *system_selected_pid_value(void)
     {
         return &system_pid_config.ki;
     }
-    return &system_pid_config.kd;
+    if(2 == system_pid_item)
+    {
+        return &system_pid_config.kd;
+    }
+    return &system_pid_config.motor_speed;
 }
 
 static void system_adjust_pid(int8 direction)
@@ -293,9 +327,25 @@ static void system_adjust_pid(int8 direction)
     int16 *value;
     int32 adjusted;
 
+    if(4 == system_pid_item)
+    {
+        system_pid_config.motor_enabled = (uint8)!system_pid_config.motor_enabled;
+        Motor_SetEnabled(system_pid_config.motor_enabled);
+        system_draw_pid();
+        return;
+    }
+
     value = system_selected_pid_value();
     adjusted = (int32)(*value) + (int32)direction * SYSTEM_PID_STEP;
-    if(adjusted > SYSTEM_PID_MAX)
+    if((3 == system_pid_item) && (adjusted > SYSTEM_MOTOR_SPEED_MAX))
+    {
+        adjusted = SYSTEM_MOTOR_SPEED_MAX;
+    }
+    else if((3 == system_pid_item) && (adjusted < 0))
+    {
+        adjusted = 0;
+    }
+    else if(adjusted > SYSTEM_PID_MAX)
     {
         adjusted = SYSTEM_PID_MAX;
     }
@@ -304,8 +354,15 @@ static void system_adjust_pid(int8 direction)
         adjusted = SYSTEM_PID_MIN;
     }
     *value = (int16)adjusted;
-    Motor_SetSpeedPID(system_pid_config.kp,
-        system_pid_config.ki, system_pid_config.kd);
+    if(3 == system_pid_item)
+    {
+        Motor_SetSpeedLimit(system_pid_config.motor_speed);
+    }
+    else
+    {
+        Motor_SetSpeedPID(system_pid_config.kp,
+            system_pid_config.ki, system_pid_config.kd);
+    }
     system_pid_dirty = 1;
     system_draw_pid();
 }
@@ -327,6 +384,10 @@ uint8 System_Init(void)
 
     Motor_SetSpeedPID(system_pid_config.kp,
         system_pid_config.ki, system_pid_config.kd);
+    Motor_SetSpeedLimit(system_pid_config.motor_speed);
+    system_pid_config.motor_enabled = 0;
+    Motor_SetEnabled(0);
+    Motor_Init(0, 0, 0, system_pid_config.motor_speed);
 
     system_open_page(SYSTEM_PAGE_MAIN);
     return camera_state;
@@ -358,9 +419,14 @@ void System_Task(void)
 
     if(back_pressed && (SYSTEM_PAGE_MAIN != system_page))
     {
-        if((SYSTEM_PAGE_SET_PID == system_page) && system_pid_dirty)
+        if(SYSTEM_PAGE_SET_PID == system_page)
         {
-            system_pid_save();
+            system_pid_config.motor_enabled = 0;
+            Motor_SetEnabled(0);
+            if(system_pid_dirty)
+            {
+                system_pid_save();
+            }
         }
         system_open_page(SYSTEM_PAGE_MAIN);
         system_delay_ms(SYSTEM_TASK_PERIOD_MS);
