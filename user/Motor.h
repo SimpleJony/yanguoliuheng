@@ -2,10 +2,10 @@
 #define __MOTOR_H__
 #include "zf_common_headfile.h"
 
-#define motorPwm_L PWMB_CH1_P74
-#define motorDir_L IO_P75
-#define motorPwm_R PWMB_CH3_P76
-#define motorDir_R IO_P77
+#define motorPwm_L PWMD_CH4_P53
+#define motorDir_L IO_P52
+#define motorPwm_R PWMD_CH2_P51
+#define motorDir_R IO_P50
 #define servoPwm   PWME_CH1P_PA0
 #define servoMid   3260
 #define motorL     0
