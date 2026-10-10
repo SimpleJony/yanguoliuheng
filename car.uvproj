@@ -264,9 +264,9 @@
             <uUch>0</uUch>
             <uFlt64>1</uFlt64>
             <Fuzzy>3</Fuzzy>
-            <Optim>3</Optim>
+            <Optim>7</Optim>
             <wLevel>3</wLevel>
-            <SizSpd>0</SizSpd>
+            <SizSpd>1</SizSpd>
             <AcaOpt>0</AcaOpt>
             <VariousControls>
               <MiscControls></MiscControls>
@@ -873,6 +873,36 @@
               <FileName>System.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\user\System.h</FilePath>
+            </File>
+            <File>
+              <FileName>search_line.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\search_line.c</FilePath>
+            </File>
+            <File>
+              <FileName>search_line.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\search_line.h</FilePath>
+            </File>
+            <File>
+              <FileName>search_geometry.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\user\search_geometry.c</FilePath>
+            </File>
+            <File>
+              <FileName>search_geometry.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\search_geometry.h</FilePath>
+            </File>
+            <File>
+              <FileName>search_calibration.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\search_calibration.h</FilePath>
+            </File>
+            <File>
+              <FileName>run_config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\user\run_config.h</FilePath>
             </File>
           </Files>
         </Group>

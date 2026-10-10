@@ -1,3 +1,9 @@
+/* Keep the motor/peripheral interrupt chain at the on-car verified level.
+ * Image processing may use O7; Keil IDE and command-line builds both obey this. */
+#if defined(__C251__)
+#pragma OPTIMIZE(3,SPEED)
+#endif
+
 /*********************************************************************************************************************
  * STC32G144K Opensourec Library 即（STC32G144K 开源库）是一个基于官方 SDK 接口的第三方开源库
  * Copyright (c) 2025 SEEKFREE 逐飞科技
@@ -414,10 +420,11 @@ void TM17_TM18_IRQHandler() interrupt TMR17_TMR18_VECTOR
 
 void INT1_IRQHandler() interrupt INT1_VECTOR
 {
-//    if(mt9v03x_finish_flag == 1)
-//    {
-//        return;
-//    }
+    /* Hold the completed buffer until the foreground releases it. */
+    if(mt9v03x_finish_flag)
+    {
+        return;
+    }
     mt9v03x_vsync_handler();
 }
 
