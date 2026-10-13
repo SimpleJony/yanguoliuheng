@@ -2,7 +2,7 @@
 #define __IMU_H__
 #include "zf_common_headfile.h"
 /* Reference project pitch mounting correction, in millidegrees (2500 = 2.5 deg). */
-#define IMU_INSTALL_OFFSET_MDEG 0
+#define IMU_INSTALL_OFFSET_MDEG 1200
 /* Startup calibration: keep the car still; raw gyro counts, not degrees. */
 #define IMU_CAL_SAMPLES 200U
 #define IMU_CAL_ATTEMPTS 3U
@@ -13,7 +13,18 @@
 #define IMU_STATUS_READY 2U
 #define IMU_STATUS_CAL_FAILED 3U
 extern volatile uint8 imu_cal_status;
+extern volatile int16 imu_gyro_x_bias, imu_gyro_y_bias;
 extern volatile int16 imu_gyro_z_bias;
+/* X/Y motion envelope: raw counts (about 14.3 counts per deg/s).
+ * At 5 ms, 1/4 low-pass weight suppresses single-sample vibration spikes.
+ * Scale only steering slew, never add a signed X/Y steering offset. */
+#define IMU_XY_MOTION_DEADBAND 140L
+#define IMU_XY_MOTION_FULL     1400L
+#define IMU_XY_SLEW_MIN_PERCENT 60
+#if IMU_XY_MOTION_DEADBAND < 0 || IMU_XY_MOTION_FULL <= IMU_XY_MOTION_DEADBAND || IMU_XY_SLEW_MIN_PERCENT < 1 || IMU_XY_SLEW_MIN_PERCENT > 100
+#error Invalid IMU X/Y steering slew settings.
+#endif
+extern volatile uint8 imu_steering_slew_percent;
 /* Reference Motor.c uses +2 * bias-corrected gyro Z / 100 in the steering PID.
  * Raw left-negative/right-positive matches this car's positive-left PWM. */
 #define IMU_STEERING_GYRO_COEFF 1

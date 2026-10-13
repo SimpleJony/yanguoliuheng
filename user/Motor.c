@@ -219,6 +219,17 @@ int16 motorPIDCalculate(volatile PID *pid, int16 target, int16 actual) {
     return func_abs(pid->base);
 }
 
+static int16 motor_steering_step(int16 delta) {
+    int16 step;
+    step = func_abs(delta) > RUN_SERVO_FAST_ERROR_PWM ?
+        RUN_SERVO_FAST_SLEW_PWM_PER_TICK : RUN_SERVO_SLEW_PWM_PER_TICK;
+    if (imu_ready && motorRunMode && motorEnabled && trackingTicks && !pathRejected) {
+        step = (int16)(((int32)step * imu_steering_slew_percent + 99) / 100);
+        if (step < 1) step = 1;
+    }
+    return step;
+}
+
 static void pitHandler(){
     int16 target_offset, delta, step, drive_speed;
     ++motorTicks;
@@ -246,8 +257,7 @@ static void pitHandler(){
      * Explicit stop/watchdog reset the offset; path loss holds it. */
     target_offset = pathRejected ? steeringOffset : steerPIDCalculate(&servoPid, duty);
     delta = target_offset - steeringOffset;
-    step = func_abs(delta) > RUN_SERVO_FAST_ERROR_PWM ?
-        RUN_SERVO_FAST_SLEW_PWM_PER_TICK : RUN_SERVO_SLEW_PWM_PER_TICK;
+    step = motor_steering_step(delta);
     steeringOffset += func_limit(delta, step);
     steeringPwm = servoMid + steeringOffset;
     pwm_set_duty(servoPwm, steeringPwm);

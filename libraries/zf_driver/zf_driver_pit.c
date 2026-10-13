@@ -1,3 +1,8 @@
+/* Keep hardware initialization and control below O7, including CLI builds. */
+#if defined(__C251__)
+#pragma OPTIMIZE(3,SPEED)
+#endif
+
 /*********************************************************************************************************************
 * STC32G144K Opensourec Library 即（STC32G144K 开源库）是一个基于官方 SDK 接口的第三方开源库
 * Copyright (c) 2025 SEEKFREE 逐飞科技

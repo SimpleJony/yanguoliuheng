@@ -8,8 +8,8 @@
 #define RUN_REAR_AXLE_X_MM           0
 #define RUN_REAR_AXLE_Y_MM        (-500)
 /* Rear-axle target radius, mm. Smaller responds sooner; larger is smoother. */
-#define RUN_LOOKAHEAD_MM           720
-#define RUN_LOOKAHEAD_MIN_MM       520
+#define RUN_LOOKAHEAD_MM           800
+#define RUN_LOOKAHEAD_MIN_MM       500
 #if RUN_LOOKAHEAD_MIN_MM <= 0 || RUN_LOOKAHEAD_MIN_MM > RUN_LOOKAHEAD_MM
 #error Lookahead minimum must be positive and no greater than nominal.
 #endif
@@ -32,12 +32,12 @@
  * <=5 deg: Set PID Speed; >=20 deg: floor; interpolate between them. */
 /* Used when no valid Speed setting is stored in EEPROM. */
 #define RUN_DEFAULT_SPEED         230
-#define RUN_MIN_SPEED             125
+#define RUN_MIN_SPEED             130
 /* Independent speed preview, measured from rear axle; calibrated fresh path only. */
 #define RUN_SPEED_LOOKAHEAD_MM    1050
 #define RUN_SPEED_RECOVER_HOLD_TICKS 40U /* 200 ms higher-speed requests */
 #define RUN_SPEED_ACCEL_TICKS       10U /* increase at most once per 50 ms */
-#define RUN_SPEED_ACCEL_STEP         3  /* speed units per interval */
+#define RUN_SPEED_ACCEL_STEP         2  /* speed units per interval */
 #if RUN_SPEED_LOOKAHEAD_MM < RUN_LOOKAHEAD_MM || RUN_SPEED_RECOVER_HOLD_TICKS < 1 || RUN_SPEED_ACCEL_TICKS < 1 || RUN_SPEED_ACCEL_STEP < 1
 #error Invalid independent speed preview/recovery settings.
 #endif

@@ -1,3 +1,8 @@
+/* O7 is reserved for image/geometry algorithms; peripherals default to O3. */
+#if defined(__C251__)
+#pragma OPTIMIZE(7,SPEED)
+#endif
+
 #include "search_geometry.h"
 #include "search_calibration.h"
 

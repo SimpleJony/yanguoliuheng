@@ -1,3 +1,8 @@
+/* Keep hardware initialization and control below O7, including CLI builds. */
+#if defined(__C251__)
+#pragma OPTIMIZE(3,SPEED)
+#endif
+
 #include "System.h"
 #include "Motor.h"
 #include "search_line.h"
